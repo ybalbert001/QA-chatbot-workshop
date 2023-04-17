@@ -138,12 +138,12 @@ def k_nn_ingestion_by_aos(docs,index,hostname,username,passwd):
     for doc in docs:
         vector_field = doc['sentence_vector']
         question_filed = doc['question']
-        answer = doc['answer']
+        answer_field = doc['answer']
         document = { "question": question_filed, 'answer':answer_field, "sentence_vector": vector_field}
         search.index(index=index, body=document)
 
 
-########k-nn ingestion by lanchain #########################
+    ########k-nn ingestion by lanchain #########################
 # input:
 #  docs:ingestion source documents
 #  vectorStore: lanchain AOS vectorStore instance
