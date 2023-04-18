@@ -21,6 +21,7 @@ headers = { "Content-Type": "application/json" }
 def parse_results(r):
     res = []
     result = []
+    print(r)
     for i in range(len(r['hits']['hits'])):
         h = r['hits']['hits'][i]
         if h['_source']['question'] not in clean:
@@ -93,13 +94,9 @@ def search_using_lanchain(question, vectorSearch):
 #  result : k-NN search result
 #############################################################
 def search_using_aos_knn(q_embedding, hostname, username,passwd, index, source_includes, size):
-    print(1, q)
     awsauth = (username, passwd)
+    print(type(q_embedding))
     query = {
-        "size": num_output,
-        "_source": {
-            "includes": source_includes
-        },
         "size": size,
         "query": {
             "knn": {
@@ -110,7 +107,7 @@ def search_using_aos_knn(q_embedding, hostname, username,passwd, index, source_i
             }
         }
     }
-    r = requests.post(hostname + index + '/_search', auth=awsauth, headers=headers, json=query)
+    r = requests.post("https://"+hostname +"/"+ index + '/_search', auth=awsauth, headers=headers, json=query)
     return r.text
 
 
