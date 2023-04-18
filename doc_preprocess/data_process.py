@@ -1,4 +1,8 @@
 import re
+import argparse
+
+
+
 
 def remove_html_tag(html_string):
     """
@@ -24,8 +28,33 @@ def convert_html2FAQ(html_string):
         answer = remove_html_tag(answer)
         yield f"Question: {question}", f"Answer: {answer}"
 
-with open('JY_FAQ.txt', 'w', encoding='utf-8') as out_f:
-    with open('JY_FAQ_Origin.txt', 'r', encoding='utf-8') as input_f:
-        all_html = input_f.read()
-        for question, answer in convert_html2FAQ(all_html):
-            out_f.write(f"\n{question}\n{answer}\n")
+def filter_makenosence_lines(conversion_content:str):
+    lines = conversion_content.splitlines()
+    filtered_lines = [ line for line in lines if line.startswith('@Jarvis') or line.startswith('亲爱的玩家') ]
+    return '\n'.join(filtered_lines)
+    
+"""
+implement a main entry, and use different flag to execute different functions
+"""
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input_file', type=str, default='./JY_FAQ_Origin.txt', help='input file')
+    parser.add_argument('--output_file', type=str, default='./JY_FAQ.txt', help='output file')
+    parser.add_argument('--command', type=str, default='process_faq', help='use process_faq or process_queries')
+    args = parser.parse_args()
+    input_file = args.input_file
+    output_file = args.output_file
+    if args.command == 'process_faq':
+        with open(output_file, 'w', encoding='utf-8') as out_f:
+            with open(input_file, 'r', encoding='utf-8') as input_f:
+                all_html = input_f.read()
+                for question, answer in convert_html2FAQ(all_html):
+                    out_f.write(f"\n{question}\n{answer}\n")
+
+    elif args.command == 'process_queries':
+        with open(output_file, 'w', encoding='utf-8') as out_f:
+            with open(input_file, 'r', encoding='utf-8') as input_f:
+                conversation_content = input_f.read()
+                filterd_content = filter_makenosence_lines(conversation_content)
+                out_f.write(filterd_content)
+
