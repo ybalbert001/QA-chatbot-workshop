@@ -27,4 +27,4 @@ def Generate(smr_client, prompt):
             ContentType="application/json",
         )
 
-    print(response_model['Body'].read().decode('utf8'))
+    return response_model['Body'].read().decode('utf8')
