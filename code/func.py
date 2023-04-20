@@ -19,6 +19,27 @@ source_includes = ["question","answer"]
 runtime= boto3.client('runtime.sagemaker')
 headers = { "Content-Type": "application/json" }
 
+endpoint_name="pytorch-inference-2023-04-20-07-28-31-042"
+region_name="us-west-2"
+
+class ExtractContentHandler(ContentHandlerBase):
+    content_type = "application/json"
+    accepts = "application/json"
+
+    def transform_input(self, prompt: str, model_kwargs: Dict) -> bytes:
+        input_str = json.dumps({"ask": prompt})
+        return input_str.encode('utf-8')
+
+    def transform_output(self, output: bytes) -> str:
+        model_predictions = json.loads(output.read().decode("utf-8"))
+        generated_text = model_predictions["answer"]
+        return generated_text
+feature_extraction_handler = ExtractContentHandler()
+feature_extraction_llm=SagemakerEndpoint(
+    endpoint_name=endpoint_name,
+    region_name=region_name,
+    content_handler=feature_extraction_handler
+)
 
 ########parse k-NN search resule###############
 # input:
@@ -159,18 +180,7 @@ def k_nn_ingestion_by_lanchain(docs,vectorStore):
     for doc in docs:
         opensearch_vector_search.add_texts(docs,batch_size=10)
 
-class ExtractContentHandler(ContentHandlerBase):
-    content_type = "application/json"
-    accepts = "application/json"
 
-    def transform_input(self, prompt: str, model_kwargs: Dict) -> bytes:
-        input_str = json.dumps({"ask": prompt})
-        return input_str.encode('utf-8')
-
-    def transform_output(self, output: bytes) -> str:
-        model_predictions = json.loads(output.read().decode("utf-8"))
-        generated_text = model_predictions["answer"]
-        return generated_text
 ########topic extraction by lanchain sm endpoint #########################
 # input:
 #  docs: history QA list[(Q1,A1).(Q2,A2),(Q3,A3)]
@@ -180,12 +190,19 @@ class ExtractContentHandler(ContentHandlerBase):
 #  result : output extracted features
 #############################################################
 def feature_extraction_by_lanchain(docs,k,sm_endpoint_nm,sm_region):
-    feature_extraction_handler = ExtractContentHandler()
-    feature_extraction_llm=SagemakerEndpoint(
-        endpoint_name=sm_endpoint_nm,
-        region_name=sm_region,
-        content_handler=feature_extraction_handler
-    )
+    #feature_extraction_handler = ExtractContentHandler()
+    #feature_extraction_llm=SagemakerEndpoint(
+    #    endpoint_name=sm_endpoint_nm,
+    #    region_name=sm_region,
+    #    content_handler=feature_extraction_handler
+    #)
+    global feature_extraction_llm
+    if feature_extraction_llm is None:
+        feature_extraction_llm=SagemakerEndpoint(
+            endpoint_name=sm_endpoint_nm,
+            region_name=sm_region,
+            content_handler=feature_extraction_handler
+        )
     payload = ""
     for doc in docs:
         question, answer = doc
