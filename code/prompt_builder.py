@@ -23,12 +23,14 @@ def intention_classify(post_text, prompt_template, few_shot_example):
     len_prompt = len(prompt)
     return result[len_prompt:]
 
-def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_respose, tokenizer):
+def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_respose, conversations, tokenizer):
     """
     Merge all retrieved related document paragraphs into a single prompt
     opensearch_respose: [{"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}]
     opensearch_knn_respose: [{"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}]
     kendra_respose: [{"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}]
+    conversations: [ ("Q1", "A1"), ("Q1", "A1"), ...]
+    tokenizer: which aim to calculate length of query's token
     return: prompt string
     """
     q_type = QueryType.NormalQuery
@@ -41,7 +43,7 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
             return q_type, prompt
     else: # NormalQuery
         if "功能无关" == intention_classify(post_text, Game_Intention_Classify_Prompt):
-            return QueryType.NonKnowledge, ""
+            return QueryType.NonKnowledge, "\n".join(conversations)
         else: # 功能相关，
             # Combine opensearch_knn_respose and kendra_respose
             recall_dict = {}
@@ -62,3 +64,9 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
 
             example_list = [ k for k, v in sorted(recall_dict.items(), key=lambda item: item[1])]
             return QueryType.NormalQuery, '\n'.join(example_list)
+
+if __name__ == '__main__':
+    post_text = "介绍一下强化部件？"
+    # opensearch_respose = [
+    #     {"score":0.7, "doc": ""}
+    # ]
