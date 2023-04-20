@@ -67,6 +67,14 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
 
 if __name__ == '__main__':
     post_text = "介绍一下强化部件？"
-    # opensearch_respose = [
-    #     {"score":0.7, "doc": ""}
-    # ]
+    opensearch_respose = [
+        {"score":0.7, "doc": "Questions:强化部件最多可以装几个？\nAnswer:亲爱的玩家，每个兵种最多可以装五个。", "doc_type": 'P'},
+        {"score":0.7, "doc": "Questions:强化部件最多可以装几个？\nAnswer:亲爱的玩家，每个兵种最多可以装五个。", "doc_type": 'P'}
+    ]
+    opensearch_knn_respose = [
+        {"score":0.7, "doc": "Questions:强化部件一共有多少个? \nAnswer:亲爱的玩家，一共有10个,选择不同的强化部件组合，会有不同的效果哦。", "doc_type": 'P'},
+        {"score":0.7, "doc": "Questions:兵种克制一共有多少级？ ", "doc_type": 'Q'}
+    ]
+    kendra_respose = []
+    conversations = []
+    prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_respose, conversations, tokenizer)
