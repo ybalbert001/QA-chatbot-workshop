@@ -1,21 +1,26 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+import json
 import boto3
 from transformers import AutoTokenizer
 from enum import Enum
 from prompt_template import Game_Intention_Classify_Prompt, Game_FreeChat_Example, Game_Knowledge_QA_Prompt
 from Bloomz_LLM import Generate
+import logging
 
 TOKENZIER_MODEL_NAME='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
 
 tokenizer = AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
 smr_client = boto3.client("sagemaker-runtime")
 
+logger = logging.getLogger('sagemaker')
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler())
+
 class QueryType(Enum):
-    KeyWordOnly = 1   #用户仅仅输入了一些关键词（2 token)
-    NormalQuery = 2   #用户输入的需要参考知识库有关来回答
-    NonKnowledge = 3  #用户输入的是跟知识库无关的问题
+    KeyWordOnly = "Keyword"   #用户仅仅输入了一些关键词（2 token)
+    NormalQuery = "KnowledgeQuery"   #用户输入的需要参考知识库有关来回答
+    NonKnowledge = "Conversation"  #用户输入的是跟知识库无关的问题
 
 def intention_classify(post_text, prompt_template, few_shot_example):   
     prompt = prompt_template.format(fewshot=few_shot_example, question=post_text)
@@ -76,9 +81,22 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
             example_list = [ k for k, v in sorted(recall_dict.items(), key=lambda item: item[1])]
             q_type = QueryType.NormalQuery
             prompt_context = '\n\n'.join(example_list)
-        
+            
         final_prompt = Game_Knowledge_QA_Prompt.format(fewshot=prompt_context, question=post_text)
-        return q_type, final_prompt.replace("Question", "玩家").replace("Answer", "Jarvis")
+        final_prompt = final_prompt.replace("Question", "玩家").replace("Answer", "Jarvis")
+        
+        json_obj = {
+            "query" : post_text,
+            "opensearch_doc" :  opensearch_respose,
+            "opensearch_knn_doc" :  opensearch_knn_respose,
+            "kendra_doc" : kendra_respose, 
+            "detect_query_type" : str(q_type),
+            "LLM_input" : final_prompt
+        }
+        json_obj_str = json.dumps(json_obj)
+        logger.info(json_obj_str)
+        
+        return q_type, final_prompt
 
 if __name__ == '__main__':
     post_text = "介绍一下强化部件？"
