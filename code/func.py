@@ -192,5 +192,5 @@ def feature_extraction_by_lanchain(docs,k,sm_endpoint_nm,sm_region):
         payload=payload+"Q:"+question+"\n"
         payload=payload+"A:"+answer+"\n"
     payload = payload+"问题：主题摘要,限制在"+str(k)+"个字内"
-    extracted_feature_texts=feature_extraction_llm(payload1)
+    extracted_feature_texts=feature_extraction_llm(payload)
     return extracted_feature_texts
