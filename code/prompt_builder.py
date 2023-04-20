@@ -7,7 +7,9 @@ from enum import Enum
 from prompt_template import Game_Intention_Classify_Prompt
 from Bloomz_LLM import Generate
 
-tokenizer = AutoTokenizer.from_pretrained('sentence-transformers/paraphrase-multilingual-mpnet-base-v2')
+TOKENZIER_MODEL_NAME='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
+
+tokenizer = AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
 smr_client = boto3.client("sagemaker-runtime")
 
 class QueryType(Enum):

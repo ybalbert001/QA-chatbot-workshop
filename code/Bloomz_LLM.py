@@ -4,6 +4,8 @@ import json
 import boto3
 import numpy as np
 
+ENDPOINT_NAME='bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+
 def Generate(smr_client, prompt):
     parameters = {
       # "early_stopping": True,
@@ -13,11 +15,9 @@ def Generate(smr_client, prompt):
       "min_length": 20,
       "no_repeat_ngram_size": 200
     }
-    # endpoint_name='bloomz-7b1-mt-2023-04-13-11-02-25-553-endpoint'
-    endpoint_name='bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
-    
+
     response_model = smr_client.invoke_endpoint(
-            EndpointName=endpoint_name,
+            EndpointName=ENDPOINT_NAME,
             Body=json.dumps(
             {
                 "inputs": prompt,
