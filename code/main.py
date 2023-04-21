@@ -431,10 +431,8 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
             "detect_query_type": str(q_type),
             "LLM_input": final_prompt
         }
-        json_obj_str = json.dumps(json_obj)
-        logger.info(json_obj_str)
 
-        return q_type, final_prompt
+        return q_type, final_prompt, json_obj
 
 def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
     """
@@ -477,12 +475,18 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     TOKENZIER_MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
     tokenizer = None # AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
 
-    query_type, prompt_data = prompt_build(post_text=query_input, opensearch_respose="", opensearch_knn_respose=opensearch_knn_respose,
-                                  kendra_respose=kendra_respose, conversations="", tokenizer=tokenizer)
+    query_type, prompt_data, log_json = prompt_build(post_text=query_input, opensearch_respose="", opensearch_knn_respose=opensearch_knn_respose,
+                                  kendra_respose=kendra_respose, conversations=[], tokenizer=tokenizer)
     
     llm_generation = Generate(sm_client, llm_endpoint, prompt=prompt_data)
     answer = json.loads(llm_generation)['outputs'][len(prompt_data):]
 
+    log_json['session_id'] = session_id
+    log_json['chatbot_answer'] = answer
+    log_json['conversations'] = conversations
+    json_obj_str = json.dumps(json_obj)
+    logger.info(json_obj_str)
+    
     update_session(session_id=session_id, question=query_input, answer=answer)
 
     return answer
@@ -530,7 +534,6 @@ def lambda_handler(event, context):
     logger.info(f'aos_index : {aos_index}')
     logger.info(f'aos_knn_field : {aos_knn_field}')
     logger.info(f'aos_result_num : {aos_result_num}')
-
     logger.info(f'Kendra_index_id : {Kendra_index_id}')
     logger.info(f'Kendra_result_num : {Kendra_result_num}')
     
