@@ -454,6 +454,8 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
 
     return: answer(str)
     """
+    sm_client = boto3.client("sagemaker-runtime")
+    
     # 1. get_session
     session_data = get_session(session_id=session_id)
 
@@ -474,7 +476,6 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     # 5. build prompt
     TOKENZIER_MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
     tokenizer = None # AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
-    sm_client = boto3.client("sagemaker-runtime")
 
     query_type, prompt_data = prompt_build(post_text=query_input, opensearch_respose="", opensearch_knn_respose=opensearch_knn_respose,
                                   kendra_respose=kendra_respose, conversations="", tokenizer=tokenizer)
@@ -533,7 +534,7 @@ def lambda_handler(event, context):
     logger.info(f'Kendra_index_id : {Kendra_index_id}')
     logger.info(f'Kendra_result_num : {Kendra_result_num}')
     
-    answer = main_entry(session_id, question, embedding_endpoint, aos_endpoint, aos_index, aos_knn_field, aos_result_num,
+    answer = main_entry(session_id, question, embedding_endpoint, llm_endpoint, aos_endpoint, aos_index, aos_knn_field, aos_result_num,
                        Kendra_index_id, Kendra_result_num)
 
     # 2. return rusult
