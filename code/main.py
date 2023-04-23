@@ -80,20 +80,20 @@ def query_kendra(Kendra_index_id="", lang="zh", search_query_text="what is s3?",
         # 创建一个字典来保存每个结果
         result_dict = {}
 
-        result_dict['title'] = result['DocumentTitle']['Text']
-        result_dict['id'] = result['DocumentId']
+        result_dict['score'] = 0.0
+        result_dict['doc_type'] = "P"
 
         # 如果有可用的总结
         if 'DocumentExcerpt' in result:
-            result_dict['excerpt'] = result['DocumentExcerpt']['Text']
+            result_dict['doc'] = result['DocumentExcerpt']['Text']
         else:
-            result_dict['excerpt'] = ''
+            result_dict['doc'] = ''
 
         # 将结果添加到列表中
         results.append(result_dict)
 
     # 输出结果列表
-    return {"kendra_results": results[:Kendra_result_num]}
+    return results[:Kendra_result_num]
 
 
 # AOS
@@ -427,12 +427,12 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
                 else:
                     recall_dict[recall_item["doc"]] = recall_item["score"]
 
-#             for recall_item in kendra_respose:
-#                 if recall_item["doc"] in recall_item.keys():
-#                     if recall_item["score"] > recall_dict[recall_item["doc"]]:
-#                         recall_dict[recall_item["doc"]] = recall_item["score"]
-#                 else:
-#                     recall_dict[recall_item["doc"]] = recall_item["score"]
+            for recall_item in kendra_respose:
+                if recall_item["doc"] in recall_item.keys():
+                    if recall_item["score"] > recall_dict[recall_item["doc"]]:
+                        recall_dict[recall_item["doc"]] = recall_item["score"]
+                else:
+                    recall_dict[recall_item["doc"]] = recall_item["score"]
 
             example_list = [k for k, v in sorted(
                 recall_dict.items(), key=lambda item: item[1])]
