@@ -8,8 +8,9 @@ import boto3
 import time
 import requests
 import uuid
-from transformers import AutoTokenizer
+# from transformers import AutoTokenizer
 from enum import Enum
+from opensearchpy import OpenSearch, RequestsHttpConnection
 
 
 logger = logging.getLogger()
@@ -141,6 +142,36 @@ def search_using_aos_knn(q_embedding, hostname, index, source_includes, size):
                         '/_search', headers=headers, json=query)
     return r.text
 
+def aos_search(host, index_name, field, query_term):
+    """
+    search opensearch with query.
+    :param host: AOS endpoint
+    :param index_name: Target Index Name
+    :param field: search field
+    :param query_term: query term
+    :return: aos response json
+    """
+    client = OpenSearch(
+        hosts=[{'host': host, 'port': 443}],
+        use_ssl=True,
+        verify_certs=True,
+        connection_class=RequestsHttpConnection
+    )
+    query = {
+        "query": {
+            'match': {
+                field: query_term
+            }
+        }
+    }
+    query_response = client.search(
+        body=query,
+        index=index_name
+    )
+
+    result_arr = [ {'doc':item['_source']['doc'], 'doc_type': item['_source']['doc_type'], 'score': item['_score']} for item in query_response["hits"]["hits"]]
+
+    return result_arr
 # def query_opensearch(api_url, query_type, query_params):
 #     headers = {'Content-Type': 'application/json'}
 #     if query_type == 'vector':  # 向量查询
@@ -489,12 +520,14 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         opensearch_knn_respose.append( {"doc": item["_source"]["doc"],"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
     
     # 4. todo: get AOS invertedIndex recall
+    opensearch_query_response = aos_search(aos_endpoint, aos_index, "doc", query_input)
+    logger.info(opensearch_query_response)
 
     # 5. build prompt
     TOKENZIER_MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
     tokenizer = None # AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
 
-    query_type, prompt_data, json_obj = prompt_build(post_text=query_input, opensearch_respose=[], opensearch_knn_respose=opensearch_knn_respose,
+    query_type, prompt_data, json_obj = prompt_build(post_text=query_input, opensearch_respose=opensearch_query_response, opensearch_knn_respose=opensearch_knn_respose,
                                   kendra_respose=kendra_respose, conversations=session_history, tokenizer=tokenizer)
     
     answer = None
