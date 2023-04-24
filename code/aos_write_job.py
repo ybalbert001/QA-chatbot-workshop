@@ -73,15 +73,17 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
     def get_embs():
         for paragraph in paragraph_array:
             print("********** paragraph : " + paragraph)
-            document = {}
+
+            documents = []
             if paragraph.lower().find("question:") > -1:
                 question = paragraph.split("\n")[0]
                 answer = paragraph.split("\n")[1]
-                document = { "doc" : question, "doc_type" : "Q", "embedding" : get_st_embedding(smr_client, question)}
-                document = { "doc" : answer, "doc_type" : "A", "embedding" : get_st_embedding(smr_client, answer)}
-            else:
-                document = { "doc" : paragraph, "doc_type" : "P", "embedding" : get_st_embedding(smr_client, paragraph)}
-            yield {"_index": index_name, "_source": document, "_id": hashlib.md5(str(document).encode('utf-8')).hexdigest()}
+                documents.append({ "doc" : question, "doc_type" : "Q", "embedding" : get_st_embedding(smr_client, question)})
+                documents.append({ "doc" : answer, "doc_type" : "A", "embedding" : get_st_embedding(smr_client, answer)})
+            
+            documents.append({ "doc" : paragraph, "doc_type" : "P", "embedding" : get_st_embedding(smr_client, paragraph)})
+            for document in documents:
+                yield {"_index": index_name, "_source": document, "_id": hashlib.md5(str(document).encode('utf-8')).hexdigest()}
 
     get_embs_func = get_embs()
     
