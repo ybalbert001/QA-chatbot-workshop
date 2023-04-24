@@ -61,3 +61,64 @@ index_body = {
 
 response = client.indices.create(INDEX_NAME, body=index_body)
 print(response)
+
+# Dashboard command
+# 1. Create AOS index
+'''
+PUT chatbot-index
+{
+    "settings" : {
+        "index":{
+            "number_of_shards" : 1,
+            "number_of_replicas" : 0,
+            "knn": "true",
+            "knn.algo_param.ef_search": 32
+        }
+    },
+    "mappings": {
+        "properties": {
+            "doc_type" : {
+                "type" : "keyword"
+            },
+            "doc": {
+                "type": "text",
+                "analyzer": "ik_max_word",
+                "search_analyzer": "ik_smart"
+            },
+            "embedding": {
+                "type": "knn_vector",
+                "dimension": 768,
+                "method": {
+                    "name": "hnsw",
+                    "space_type": "l2",
+                    "engine": "nmslib",
+                    "parameters": {
+                        "ef_construction": 64,
+                        "m": 8
+                    }
+                }            
+            }
+        }
+    }
+}
+'''
+# 2. Search AOS with term condition (term field should be keyword, not text)
+'''
+GET chatbot-index/_search
+{
+    "size": 1,
+    "query": {
+      "bool":{
+        "must":[ {"term": { "doc_type":"P" }} ],
+        "should": [ {"match": { "doc": "强化部件" }} ]
+      }
+    },
+    "sort": [
+      {
+        "_score": {
+          "order": "desc"
+        }
+      }
+    ]
+}
+'''
