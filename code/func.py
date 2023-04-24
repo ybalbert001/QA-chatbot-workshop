@@ -41,6 +41,27 @@ feature_extraction_llm=SagemakerEndpoint(
     content_handler=feature_extraction_handler
 )
 
+########parse field search resule###############
+# input:
+#  r: AOS returned json
+#  score: judgement score(default 0.75)
+# return:
+#  result : array of result(text, score)
+#############################################
+def parse_field_results(r):
+    res = []
+    result = []
+    print(r)
+    for i in range(len(r['hits']['hits'])):
+        h = r['hits']['hits'][i]
+        if float(h['_score'])<score:
+            continue
+        if h['_source']['question'] not in result :
+            result.append(h['_source']['question'])
+            res.append((h['_source']['question'] ,h['_score']))
+    print(result)
+    return res
+
 ########parse k-NN search resule###############
 # input:
 #  r: AOS returned json
@@ -108,6 +129,84 @@ def search_using_lanchain(question, vectorSearch):
     docs = vectorSearch.similarity_search(query)
     return docs
 
+
+########intension detect by aos knn########
+# input:
+#  query:question text
+#  index:AOS k-NN index name
+#  size: topN(for K-NN search)
+#  hostname: aos endpoint
+#  username: aos username
+#  passwd: aos password
+# return:
+#  result : k-NN search result
+#############################################################
+def intension_detection_by_aos_knn(q_embedding, hostname, username,passwd, index, size):
+    awsauth = (username, passwd)
+    print(type(q_embedding))
+    query = {
+        "size": size,
+        "query": {
+            "knn": {
+                "sentence_vector": {
+                    "vector": q_embedding,
+                    "k": size
+                }
+            }
+        }
+    }
+    r = requests.post("https://"+hostname +"/"+ index + '/_search', auth=awsauth, headers=headers, json=query)
+    return r.text
+
+########intension detect by aos field########
+# input:
+#  question:query text
+#  index:AOS k-NN index name
+#  field:AOS field name(for document search)
+#  hostname: aos endpoint
+#  username: aos username
+#  passwd: aos password
+#  size: return size
+# return:
+#  result : field search result
+#############################################################
+def intension_detection_by_aos_field(question, hostname, username,passwd, index, field):
+    awsauth = (username, passwd)
+    query = {
+        "size": size,
+        "query": {
+            "match": {
+                field: question
+            }
+        }
+    }
+    r = requests.post("https://"+hostname +"/"+ index + '/_search', auth=awsauth, headers=headers, json=query)
+    return r.text
+
+
+########intension detect by llm ########
+# input:
+#  questions:question text
+#  sm_client:sagemaker rutime client instance
+#  endpoint_name:sagemaker llm hosting endpoint
+#  parameters: inference parameters
+# return:
+#  result : llm prediction result
+#############################################################
+def get_vector_by_sm_endpoint(questions,sm_client,endpoint_name):
+    payload={"ask":questions+"\n"+
+            "问题：内容分类,以上属于闲聊还是专业问题？"}
+    response_model = sm_client.invoke_endpoint(
+        EndpointName=endpoint_name,
+        Body=json.dumps(
+            payload
+        ).encode("utf-8"),
+        ContentType="application/json",
+    )
+    json_str = response_model['Body'].read().decode('utf8')
+    json_obj = json.loads(json_str)
+    result = json_obj['answer']
+    return result
 
 
 ########k-nn by native AOS########
