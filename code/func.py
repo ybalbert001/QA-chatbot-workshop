@@ -48,18 +48,18 @@ feature_extraction_llm=SagemakerEndpoint(
 # return:
 #  result : array of result(text, score)
 #############################################
-def parse_field_results(r):
+def parse_field_results(r,score=0.75):
     res = []
     result = []
-    print(r)
-    for i in range(len(r['hits']['hits'])):
-        h = r['hits']['hits'][i]
-        if float(h['_score'])<score:
+    json_obj = json.loads(r)
+    for i in range(len(json_obj['hits']['hits'])):
+        h = json_obj['hits']['hits'][i]
+        if (h['_score'])<score:
+            #print("score=="+str(h['_score']))
             continue
         if h['_source']['question'] not in result :
             result.append(h['_source']['question'])
             res.append((h['_source']['question'] ,h['_score']))
-    print(result)
     return res
 
 ########parse k-NN search resule###############
@@ -193,7 +193,7 @@ def intension_detection_by_aos_field(question, hostname, username,passwd, index,
 # return:
 #  result : llm prediction result
 #############################################################
-def get_vector_by_sm_endpoint(questions,sm_client,endpoint_name):
+def intension_detection_by_sm_endpoint(questions,sm_client,endpoint_name):
     payload={"ask":questions+"\n"+
             "问题：内容分类,以上属于闲聊还是专业问题？"}
     response_model = sm_client.invoke_endpoint(
