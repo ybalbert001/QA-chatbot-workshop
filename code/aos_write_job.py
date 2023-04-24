@@ -14,13 +14,17 @@ s3 = boto3.resource('s3')
 bucket = args['bucket']
 object_key = args['object_key']
 
-
 EMB_MODEL_ENDPOINT = "st-paraphrase-mpnet-base-v2-2023-04-19-04-14-31-658-endpoint"
 smr_client = boto3.client("sagemaker-runtime")
 
-AOS_ENDPOINT = 'vpc-chatbot-knn-3qe6mdpowjf3cklpj5c4q2blou.us-east-1.es.amazonaws.com'
+AOS_ENDPOINT = 'search-chatbot-workshop-r5rtwkjmtfuc5xz2vv5ychwfva.us-east-1.es.amazonaws.com'
 INDEX_NAME = 'chatbot-index'
 REGION='us-east-1'
+
+args = getResolvedOptions(sys.argv, ['aos_master', 'aos_password'])
+aos_master = args['aos_master']
+aos_pwd = args['aos_password']
+auth = (aos_master, aos_pwd)
 
 def get_st_embedding(smr_client, text_input, endpoint_name=EMB_MODEL_ENDPOINT):
     parameters = {
@@ -50,7 +54,7 @@ def get_st_embedding(smr_client, text_input, endpoint_name=EMB_MODEL_ENDPOINT):
     return embeddings[0]
 
 
-def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, region=REGION, index_name=INDEX_NAME):
+def WriteVecIndexToAOS(paragraph_array, smr_client, aos_master, aos_pwd, aos_endpoint=AOS_ENDPOINT, region=REGION, index_name=INDEX_NAME):
     """
     write paragraph to AOS for Knn indexing.
     :param paragraph_input : document content 
@@ -58,12 +62,14 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
     :param index_name : AOS index name
     :return None
     """
-    credentials = boto3.Session().get_credentials()
-    auth = AWSV4SignerAuth(credentials, region)
+    # credentials = boto3.Session().get_credentials()
+    # auth = AWSV4SignerAuth(credentials, region)
+    # auth = ('xxxx', 'yyyy') master user/pwd
+    auth = (aos_master, aos_pwd)
 
     client = OpenSearch(
         hosts = [{'host': aos_endpoint, 'port': 443}],
-        # http_auth = auth,
+        http_auth = auth,
         use_ssl = True,
         verify_certs = True,
         connection_class = RequestsHttpConnection
