@@ -4,6 +4,8 @@
 Initialize AOS Index, 在cloud9 上运行成功，但仅仅当cloud9外网IP开放时 才能执行。否则报错
 '{"Message":"User: anonymous is not authorized to perform: es:ESHttpPut because no resource-based policy allows the es:ESHttpPut action"}'
 '''
+import sys
+import boto3
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from awsglue.utils import getResolvedOptions
 
