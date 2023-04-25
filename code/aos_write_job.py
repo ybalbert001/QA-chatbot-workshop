@@ -76,12 +76,12 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
 
             documents = []
             if paragraph.lower().find("question:") > -1:
-                question = paragraph.split("\n")[0]
-                answer = paragraph.split("\n")[1]
-                documents.append({ "doc" : question, "doc_type" : "Q", "embedding" : get_st_embedding(smr_client, question)})
-                documents.append({ "doc" : answer, "doc_type" : "A", "embedding" : get_st_embedding(smr_client, answer)})
-            
-            documents.append({ "doc" : paragraph, "doc_type" : "P", "embedding" : get_st_embedding(smr_client, paragraph)})
+                question = paragraph.split("\n")[0].replace("Question: ", "")
+                answer = paragraph.split("\n")[1].replace("Answer: ", "")
+                documents.append({ "doc" : question, "doc_type" : "Q", "answer" : answer, "embedding" : get_st_embedding(smr_client, question)})
+            else:
+                documents.append({ "doc" : paragraph, "doc_type" : "P", "answer" : "", "embedding" : get_st_embedding(smr_client, paragraph)})
+
             for document in documents:
                 yield {"_index": index_name, "_source": document, "_id": hashlib.md5(str(document).encode('utf-8')).hexdigest()}
 
