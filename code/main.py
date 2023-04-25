@@ -17,6 +17,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 sm_client = boto3.client("sagemaker-runtime")
 llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+QA_SEP = "=>"
 
 class ErrorCode:
     DUPLICATED_INDEX_PREFIX = "DuplicatedIndexPrefix"
@@ -123,10 +124,47 @@ def get_vector_by_sm_endpoint(questions, sm_client, endpoint_name):
     embeddings = json_obj['sentence_embeddings']
     return embeddings
 
-def search_using_aos_knn(q_embedding, hostname, index, source_includes, size):
+def search_using_aos_knn(q_embedding, hostname, index, size=10):
     # awsauth = (username, passwd)
     # print(type(q_embedding))
+    logger.info(f"q_embedding:")
+    logger.info(q_embedding)
     headers = {"Content-Type": "application/json"}
+    # query = {
+    #     "size": size,
+    #     "query": {
+    #         "bool": {
+    #             "must":[ {"term": { "doc_type": "P" }} ],
+    #             "should": [ { "knn": { "embedding": { "vector": q_embedding, "k": size }}} ]
+    #         }
+    #     },
+    #     "sort": [
+    #         {
+    #             "_score": {
+    #                 "order": "asc"
+    #             }
+    #         }
+    #     ]
+    # }
+
+    # reference: https://opensearch.org/docs/latest/search-plugins/knn/filter-search-knn/#boolean-filter-with-ann-search
+    # query =  {
+    #     "bool": {
+    #         "filter": {
+    #             "bool": {
+    #                 "must": [{ "term": {"doc_type": "P" }}]
+    #             }
+    #         },
+    #         "must": [
+    #             {
+    #                 "knn": {"embedding": { "vector": q_embedding, "k": size }}
+    #             } 
+    #         ]
+    #     }
+    # }
+
+
+    #Note: 查询时无需指定排序方式，最临近的向量分数越高，做过归一化(0.0~1.0)
     query = {
         "size": size,
         "query": {
@@ -140,9 +178,14 @@ def search_using_aos_knn(q_embedding, hostname, index, source_includes, size):
     }
     r = requests.post("https://"+hostname + "/" + index +
                         '/_search', headers=headers, json=query)
-    return r.text
+    
+    results = json.loads(r.text)["hits"]["hits"]
+    opensearch_knn_respose = []
+    for item in results:
+        opensearch_knn_respose.append( {'doc':"{}{}{}".format(item['_source']['doc'], QA_SEP, item['_source']['answer']),"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
+    return opensearch_knn_respose
 
-def aos_search(host, index_name, field, query_term):
+def aos_search(host, index_name, field, query_term, exactly_match=False, size=10):
     """
     search opensearch with query.
     :param host: AOS endpoint
@@ -157,94 +200,43 @@ def aos_search(host, index_name, field, query_term):
         verify_certs=True,
         connection_class=RequestsHttpConnection
     )
-    query = {
-        "query": {
-            'match': {
-                field: query_term
+    query = None
+    if exactly_match:
+        query =  {
+            "query" : {
+                "match_phrase":{
+                    "doc": query_term
+                }
             }
         }
-    }
+    else:
+        query = {
+            "size": size,
+            "query": {
+                "bool":{
+                    "must":[ {"term": { "doc_type": "Q" }} ],
+                    "should": [ {"match": { field : query_term }} ]
+                }
+            },
+            "sort": [
+                {
+                    "_score": {
+                        "order": "desc"
+                    }
+                }
+            ]
+        }
     query_response = client.search(
         body=query,
         index=index_name
     )
 
-    result_arr = [ {'doc':item['_source']['doc'], 'doc_type': item['_source']['doc_type'], 'score': item['_score']} for item in query_response["hits"]["hits"]]
+    if exactly_match:
+        result_arr = [ {'doc': item['_source']['answer'], 'doc_type': 'A', 'score': item['_score']} for item in query_response["hits"]["hits"]]
+    else:
+        result_arr = [ {'doc':"{}{}{}".format(item['_source']['doc'], QA_SEP, item['_source']['answer']), 'doc_type': item['_source']['doc_type'], 'score': item['_score']} for item in query_response["hits"]["hits"]]
 
     return result_arr
-# def query_opensearch(api_url, query_type, query_params):
-#     headers = {'Content-Type': 'application/json'}
-#     if query_type == 'vector':  # 向量查询
-#         query_json = {
-#             "size": query_params['size'],
-#             "query": {
-#                 "knn": {
-#                     query_params['field']: {
-#                         "vector": query_params['vector_values'],
-#                         "k": query_params['k']
-#                     }
-#                 }
-#             }
-#         }
-#     elif query_type == 'match': # 字符串匹配查询
-#         query_json = {
-#             "size": query_params['size'],
-#             "query": {
-#                 "match": {
-#                     query_params['field']: query_params['match_keyword']
-#                 }
-#             }
-#         }
-
-#     response = requests.post(api_url, headers=headers, data=json.dumps(query_json))
-#     if response.status_code == 200:
-#         # 请求成功
-#         response_json = json.loads(response.text)
-#         hits = response_json['hits']['hits']
-#         return [hit['_source'] for hit in hits]
-#     else:
-#         # 请求失败
-#         print(f"请求失败: {response.status_code} - {response.text}")
-#         return []
-
-
-# def get_vector_by_sm_endpoint(questions, sm_client, endpoint_name, parameters):
-#     response_model = sm_client.invoke_endpoint(
-#         EndpointName=endpoint_name,
-#         Body=json.dumps(
-#             {
-#                 "inputs": questions,
-#                 "parameters": parameters
-#             }
-#         ),
-#         ContentType="application/json",
-#     )
-#     json_str = response_model['Body'].read().decode('utf8')
-#     json_obj = json.loads(json_str)
-#     embeddings = json_obj['sentence_embeddings']
-#     return embeddings
-
-
-# def search_using_aos_knn(q_embedding, hostname, index, source_includes, size):
-#     # awsauth = (username, passwd)
-#     print(type(q_embedding))
-#     query = {
-#         "size": size,
-#         "query": {
-#             "knn": {
-#                 "sentence_vector": {
-#                     "vector": q_embedding,
-#                     "k": size
-#                 }
-#             }
-#         }
-#     }
-#     r = requests.post("https://"+hostname + "/" + index +
-#                       '/_search', headers=headers, json=query)
-#     return r.text
-
-# DDB
-
 
 def get_session(session_id):
 
@@ -258,10 +250,10 @@ def get_session(session_id):
     response = table.get_item(Key={'session-id': session_id})
 
     if "Item" in response.keys():
-        print("****** " + response["Item"]["content"])
+        # print("****** " + response["Item"]["content"])
         operation_result = json.loads(response["Item"]["content"])
     else:
-        print("****** No result")
+        # print("****** No result")
         operation_result = ""
 
     return operation_result
@@ -284,10 +276,10 @@ def update_session(session_id, question, answer, intention):
     response = table.get_item(Key={'session-id': session_id})
 
     if "Item" in response.keys():
-        print("****** " + response["Item"]["content"])
+        # print("****** " + response["Item"]["content"])
         chat_history = json.loads(response["Item"]["content"])
     else:
-        print("****** No result")
+        # print("****** No result")
         chat_history = []
 
     chat_history.append([question, answer, intention])
@@ -312,17 +304,15 @@ def update_session(session_id, question, answer, intention):
     return operation_result
 
 
-
-
-
 def Generate(smr_client, llm_endpoint, prompt):
     parameters = {
         # "early_stopping": True,
-        "length_penalty": 100.0,
+        "length_penalty": 1.0,
         "max_new_tokens": 200,
         "temperature": 0,
         "min_length": 20,
-        "no_repeat_ngram_size": 200
+        "no_repeat_ngram_size": 200,
+        # "eos_token_id": ['\n']
     }
 
     response_model = smr_client.invoke_endpoint(
@@ -350,29 +340,11 @@ class QueryType(Enum):
 def intention_classify(post_text, prompt_template, few_shot_example):
     prompt = prompt_template.format(
         fewshot=few_shot_example, question=post_text)
-    print(prompt)
     result = Generate(sm_client, llm_endpoint, prompt)
-    print(result)
     len_prompt = len(prompt)
     return result[len_prompt:]
 
-# different scan
-def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_respose, conversations, tokenizer):
-    """
-    Detect User intentions, build prompt for LLM. For Knowledge QA, it will merge all retrieved related document paragraphs into a single prompt
-    Parameters examples:
-        post_text : "你好么？"
-        opensearch_respose: [{"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}]
-        opensearch_knn_respose: [
-            {"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}
-        ]
-        kendra_respose: [{"score" : 0.7, "doc": "....", "doc_type": "Q|A|P"}]
-        conversations: [["Q1", "A1",'Qtype1'], ("Q1", "A1",'Qtype1'), ...]
-        tokenizer: which aim to calculate length of query's token
-    return: prompt string
-    """
-    # prompt templates:
-    # LLM
+def intention_detect_prompt_build(post_text, conversations):
     Game_Intention_Classify_Examples="""玩家输入: 介绍一下联盟?
     输出: 功能相关
 
@@ -385,6 +357,18 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
     玩家输入: 我要给你们提个建议！
     输出: 功能无关
 
+    玩家输入: 今天心情不好
+    输出: 功能无关
+
+    玩家输入: 和女朋友吵架了
+    输出: 功能无关
+
+    玩家输入: 我真的无语了
+    输出: 功能无关
+
+    玩家输入: 心情真的很差，怎么办
+    输出: 功能无关
+
     玩家输入:怎么才能迁移区服？
     输出: 功能相关"""
 
@@ -395,94 +379,38 @@ def prompt_build(post_text, opensearch_respose, opensearch_knn_respose, kendra_r
 
     玩家输入:{question}
     输出: """
+    pass
 
-    Game_Knowledge_QA_Prompt = """
-    Jarvis 是一个游戏智能客服，能够回答玩家的各种问题，以及陪用户聊天，比如
+def conversion_prompt_build(post_text, conversations, role_a="玩家", role_b = "Jarvis"):
+    Game_Free_Chat_Examples ="""{A}: 我要给你们提个建议！
+    {B}: 感谢您的支持，我们对玩家的建议都是非常重视的，您可以点击右上角联系客服-我要提交建议填写您的建议内容并提交，我们会转达给团队进行考量。建议提交
 
-    {fewshot}
+    {A}: 我玩你们的游戏导致失恋了
+    {B}: 亲爱的玩家，真的非常抱歉听到这个消息，让您受到了困扰。感情的事情确实很复杂，但请相信，时间会治愈一切。请保持乐观积极的心态，也许未来会有更好的人陪伴您。我们会一直陪在您身边，为您提供游戏中的支持与帮助。请多关注自己的生活，适当调整游戏与生活的平衡。祝您生活愉快，感情美满~(づ｡◕‿‿◕｡)づ
+    """.format(A=role_a, B = role_b)
 
-    玩家:{question}
-    Jarvis:"""
-
-    Game_Free_Chat_Examples ="""玩家: 我要给你们提个建议！
-    Jarvis: 感谢您的支持，我们对玩家的建议都是非常重视的，您可以点击右上角联系客服-我要提交建议填写您的建议内容并提交，我们会转达给团队进行考量。建议提交
-
-    玩家: 我玩你们的游戏导致失恋了
-    Jarvis:亲爱的玩家，真的非常抱歉听到这个消息，让您受到了困扰。感情的事情确实很复杂，但请相信，时间会治愈一切。请保持乐观积极的心态，也许未来会有更好的人陪伴您。我们会一直陪在您身边，为您提供游戏中的支持与帮助。请多关注自己的生活，适当调整游戏与生活的平衡。祝您生活愉快，感情美满~(づ｡◕‿‿◕｡)づ
-    """
+    chat_history = [ """{}: {}\n{}: {}""".format(role_a, item[0], role_b, item[1]) for item in conversations ]
+    chat_histories = "\n\n".join(chat_history)
 
     Game_Free_Chat_Prompt = """
-    Jarvis 是一个游戏智能客服，能够回答玩家的各种问题，以及陪用户聊天，比如
+    Jarvis 是一个游戏智能客服，能够回答玩家的各种问题以及陪用户聊天，比如\n\n{fewshot}\n\n{chat_history}\n\n{A}: {question}\n{B}: """
+    return Game_Free_Chat_Prompt.format(fewshot=Game_Free_Chat_Examples, chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
 
-    {fewshot}
+# different scan
+def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="玩家", role_b = "Jarvis"):
+    """
+    Detect User intentions, build prompt for LLM. For Knowledge QA, it will merge all retrieved related document paragraphs into a single prompt
+    Parameters examples:
+        post_text : "介绍下强化部件"
+        qa_recalls: [ doc1, doc2, ]
+    return: prompt string
+    """
+    qa_pairs = [ doc.split(QA_SEP) for doc, _ in qa_recalls ]
+    qa_fewshots = [ "{}: {}\n{}: {}".format(role_a, pair[0], role_b, pair[1]) for pair in qa_pairs ]
+    fewshots_str = "\n\n".join(qa_fewshots[-3:])
+    Game_Knowledge_QA_Prompt = """{AI_role} 是《口袋奇兵》游戏的智能客服，能够回答玩家的各种问题，比如\n\n{fewshot}\n\n玩家:{question}\nJarvis:"""
 
-    {chat_history}
-
-    玩家: {question}
-    Jarvis:"""
-
-    q_type = None
-    final_prompt = ""
-
-    # tokens = tokenizer.encode(post_text)
-
-    # if user input exactly match special term, return the special term's description directly
-    if (post_text in ["强化备件", "联盟"]): # reimplement this judge later
-        q_type = QueryType.KeywordQuery
-        if opensearch_respose:
-            final_prompt = opensearch_respose[-1]
-    else:  # NormalQuery
-        detect_intention = intention_classify(post_text, Game_Intention_Classify_Prompt, Game_Intention_Classify_Examples)
-        print(f"detect_intention : {detect_intention}")
-        if detect_intention == "功能无关":
-            chat_histories = '\n\n'.join(['\n'.join(conversation[:2]) for conversation in conversations])
-            final_prompt = Game_Free_Chat_Prompt.format(fewshot=Game_Free_Chat_Examples, chat_history=chat_histories, question=post_text)
-            q_type = QueryType.Conversation
-        else:  # detect_intention == "功能相关"
-            # Combine opensearch_knn_respose and kendra_respose
-            recall_dict = {}
-            # for recall_item in opensearch_respose:
-            #     if recall_item["doc"] in recall_item.keys():
-            #         if recall_item["score"] > recall_dict[recall_item["doc"]]:
-            #             recall_dict[recall_item["doc"]] = recall_item["score"]
-            #     else:
-            #         recall_dict[recall_item["doc"]] = recall_item["score"]
-
-            for recall_item in opensearch_knn_respose:
-                if recall_item["doc_type"] != 'P':
-                    continue
-
-                if recall_item["doc"] in recall_item.keys():
-                    if recall_item["score"] > recall_dict[recall_item["doc"]]:
-                        recall_dict[recall_item["doc"]] = recall_item["score"]
-                else:
-                    recall_dict[recall_item["doc"]] = recall_item["score"]
-
-            for recall_item in kendra_respose:
-                if recall_item["doc"] in recall_item.keys():
-                    if recall_item["score"] > recall_dict[recall_item["doc"]]:
-                        recall_dict[recall_item["doc"]] = recall_item["score"]
-                else:
-                    recall_dict[recall_item["doc"]] = recall_item["score"]
-
-            example_list = [k for k, v in sorted(
-                recall_dict.items(), key=lambda item: item[1])]
-            q_type = QueryType.KnowledgeQuery
-            prompt_context = '\n\n'.join(example_list)
-
-            final_prompt = Game_Knowledge_QA_Prompt.format(fewshot=prompt_context, question=post_text)
-            final_prompt = final_prompt.replace("Question", "玩家").replace("Answer", "Jarvis")
-
-    json_obj = {
-        "query": post_text,
-        "opensearch_doc":  opensearch_respose,
-        "opensearch_knn_doc":  opensearch_knn_respose,
-        "kendra_doc": kendra_respose,
-        "detect_query_type": str(q_type),
-        "LLM_input": final_prompt
-    }
-
-    return q_type, final_prompt, json_obj
+    return Game_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, AI_role=role_b)
 
 def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
     """
@@ -505,48 +433,99 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     sm_client = boto3.client("sagemaker-runtime")
     
     # 1. get_session
+    import time
+    start1 = time.time()
     session_history = get_session(session_id=session_id)
+    elpase_time = time.time() - start1
+    logger.info(f'runing time of get_session : {elpase_time}s seconds')
 
     # 2. get kendra recall 
-    kendra_respose = query_kendra(kendra_index_id, "zh", query_input, kendra_result_num)
+    # start = time.time()
+    # kendra_respose = [] # query_kendra(kendra_index_id, "zh", query_input, kendra_result_num)
+    # elpase_time = time.time() - start
+    # logger.info(f'runing time of query_kendra : {elpase_time}s seconds')
 
     # 3. get AOS knn recall 
+    start = time.time()
     query_embedding = get_vector_by_sm_endpoint(query_input, sm_client, embedding_model_endpoint)
-    source_includes = ["doc_type", "doc"]
-    knn_result = search_using_aos_knn(query_embedding[0], aos_endpoint, aos_index, source_includes, aos_result_num)
-    result = json.loads(knn_result)["hits"]["hits"]
-    opensearch_knn_respose = []
-    for item in result[:3]:
-        opensearch_knn_respose.append( {"doc": item["_source"]["doc"],"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
+    opensearch_knn_respose = search_using_aos_knn(query_embedding[0], aos_endpoint, aos_index)
+    elpase_time = time.time() - start
+    logger.info(f'runing time of opensearch_knn : {elpase_time}s seconds')
     
-    # 4. todo: get AOS invertedIndex recall
+    # 4. get AOS invertedIndex recall
+    start = time.time()
     opensearch_query_response = aos_search(aos_endpoint, aos_index, "doc", query_input)
-    logger.info(opensearch_query_response)
+    # logger.info(opensearch_query_response)
+    elpase_time = time.time() - start
+    logger.info(f'runing time of opensearch_query : {elpase_time}s seconds')
 
-    # 5. build prompt
-    TOKENZIER_MODEL_NAME = 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
-    tokenizer = None # AutoTokenizer.from_pretrained(TOKENZIER_MODEL_NAME)
+    # 5. combine these two opensearch_knn_respose and opensearch_query_response
+    def combine_recalls(opensearch_knn_respose, opensearch_query_response):
+        '''
+        filter knn_result if the result don't appear in filter_inverted_result
+        '''
+        knn_threshold = 0.3
+        inverted_theshold = 5.0
+        filter_knn_result = { item["doc"] : item["score"] for item in opensearch_knn_respose if item["score"]> knn_threshold }
+        filter_inverted_result = { item["doc"] : item["score"] for item in opensearch_query_response if item["score"]> inverted_theshold }
 
-    query_type, prompt_data, json_obj = prompt_build(post_text=query_input, opensearch_respose=opensearch_query_response, opensearch_knn_respose=opensearch_knn_respose,
-                                  kendra_respose=kendra_respose, conversations=session_history, tokenizer=tokenizer)
+        combine_result = []
+        for doc, score in filter_knn_result.items():
+            if doc in filter_inverted_result.keys():
+                combine_result.append(( doc, score))
+
+        return combine_result
     
+    recall_knowledge = combine_recalls(opensearch_knn_respose, opensearch_query_response)
+
+    # 6. check is it keyword search
+    exactly_match_result = aos_search(aos_endpoint, aos_index, "doc", query_input, exactly_match=True)
+
     answer = None
+    final_prompt = None
+    query_type = None
+    if exactly_match_result and recall_knowledge: 
+        query_type = QueryType.KeywordQuery
+        answer = exactly_match_result[0]["doc"]
+        final_prompt = ""
+    elif recall_knowledge:
+        query_type = QueryType.KnowledgeQuery
+        final_prompt = qa_knowledge_prompt_build(query_input, recall_knowledge, role_a="玩家", role_b = "Jarvis")
+    else:
+        query_type = QueryType.Conversation
+        free_chat_coversions = [ item for item in session_history if item[2] == "QueryType.Conversation" ]
+        final_prompt = conversion_prompt_build(query_input, free_chat_coversions)
+
+    json_obj = {
+        "query": query_input,
+        "opensearch_doc":  opensearch_query_response,
+        "opensearch_knn_doc":  opensearch_knn_respose,
+        "kendra_doc": [],
+        "knowledges" : recall_knowledge,
+        "detect_query_type": str(query_type),
+        "LLM_input": final_prompt
+    }
+
     try:
-        llm_generation = Generate(sm_client, llm_endpoint, prompt=prompt_data)
-        answer = llm_generation[len(prompt_data):]
+        llm_generation = Generate(sm_client, llm_endpoint, prompt=final_prompt)
+        answer = llm_generation[len(final_prompt):]
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
-        json_obj['conversations'] = session_history
+        json_obj['conversations'] = free_chat_coversions
         json_obj['log_type'] = "all"
         json_obj_str = json.dumps(json_obj, ensure_ascii=False)
-        logger.info(json_obj_str)
     except Exception as e:
         logger.info(f'Exceptions: str({e})')
     finally:
         json_obj_str = json.dumps(json_obj, ensure_ascii=False)
         logger.info(json_obj_str)
 
+    start = time.time()
     update_session(session_id=session_id, question=query_input, answer=answer, intention=str(query_type))
+    elpase_time = time.time() - start
+    elpase_time1 = time.time() - start1
+    logger.info(f'runing time of update_session : {elpase_time}s seconds')
+    logger.info(f'runing time of all  : {elpase_time1}s seconds')
 
     return answer
 
@@ -564,7 +543,7 @@ def lambda_handler(event, context):
     question = event['prompt']
 
     # 获取当前时间戳
-    request_timestamp = int(time.time())  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
+    request_timestamp = time.time()  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
     logger.info(f'request_timestamp :{request_timestamp}')
     logger.info(f"event:{event}")
     logger.info(f"context:{context}")
@@ -596,9 +575,11 @@ def lambda_handler(event, context):
     logger.info(f'Kendra_index_id : {Kendra_index_id}')
     logger.info(f'Kendra_result_num : {Kendra_result_num}')
     
+    main_entry_start = time.time()  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
     answer = main_entry(session_id, question, embedding_endpoint, llm_endpoint, aos_endpoint, aos_index, aos_knn_field, aos_result_num,
                        Kendra_index_id, Kendra_result_num)
-
+    main_entry_elpase = time.time() - main_entry_start  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
+    logger.info(f'runing time of main_entry : {main_entry_elpase}s seconds')
     # 2. return rusult
 
     # 处理
@@ -615,7 +596,7 @@ def lambda_handler(event, context):
         'headers': {'Content-Type': 'application/json'},
         'body': [{"id": str(uuid.uuid4()),
                              "created": request_timestamp,
-                             "useTime": int(time.time()) - request_timestamp,
+                             "useTime": time.time() - request_timestamp,
                              "model": "main_brain",
                              "choices":
                              [{"text": answer}],
