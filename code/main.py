@@ -127,8 +127,8 @@ def get_vector_by_sm_endpoint(questions, sm_client, endpoint_name):
 def search_using_aos_knn(q_embedding, hostname, index, size=10):
     # awsauth = (username, passwd)
     # print(type(q_embedding))
-    logger.info(f"q_embedding:")
-    logger.info(q_embedding)
+    # logger.info(f"q_embedding:")
+    # logger.info(q_embedding)
     headers = {"Content-Type": "application/json"}
     # query = {
     #     "size": size,
