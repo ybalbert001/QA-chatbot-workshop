@@ -93,8 +93,8 @@ PUT chatbot-index
                     "space_type": "l2",
                     "engine": "nmslib",
                     "parameters": {
-                        "ef_construction": 64,
-                        "m": 8
+                        "ef_construction": 512,
+                        "m": 32
                     }
                 }            
             }
