@@ -391,10 +391,11 @@ def conversion_prompt_build(post_text, conversations, role_a="玩家", role_b = 
 
     chat_history = [ """{}: {}\n{}: {}""".format(role_a, item[0], role_b, item[1]) for item in conversations ]
     chat_histories = "\n\n".join(chat_history)
+    chat_histories = f'\n\n{chat_histories}' if len(chat_histories) else ""
 
-    Game_Free_Chat_Prompt = """
-    Jarvis 是一个游戏智能客服，能够回答玩家的各种问题以及陪用户聊天，比如\n\n{fewshot}\n\n{chat_history}\n\n{A}: {question}\n{B}: """
-    return Game_Free_Chat_Prompt.format(fewshot=Game_Free_Chat_Examples, chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
+    # \n\n{fewshot}
+    Game_Free_Chat_Prompt = """{B} 是《口袋奇兵》游戏的智能客服，对待客户一些粗暴的言论能够始终保持礼貌耐心的态度，回答玩家的各种问题以及陪玩家聊天，如以下聊天记录:{chat_history}\n\n{A}: {question}\n{B}: """
+    return Game_Free_Chat_Prompt.format(chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
 
 # different scan
 def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="玩家", role_b = "Jarvis"):
@@ -408,9 +409,9 @@ def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="玩家", role_b = "
     qa_pairs = [ doc.split(QA_SEP) for doc, _ in qa_recalls ]
     qa_fewshots = [ "{}: {}\n{}: {}".format(role_a, pair[0], role_b, pair[1]) for pair in qa_pairs ]
     fewshots_str = "\n\n".join(qa_fewshots[-3:])
-    Game_Knowledge_QA_Prompt = """{AI_role} 是《口袋奇兵》游戏的智能客服，能够回答玩家的各种问题，比如\n\n{fewshot}\n\n玩家:{question}\nJarvis:"""
+    Game_Knowledge_QA_Prompt = """{A_role} 是《口袋奇兵》游戏的智能客服，能够回答玩家的各种问题，比如:\n\n{fewshot}\n\n{A_role}: {question}\n{B_role}: """
 
-    return Game_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, AI_role=role_b)
+    return Game_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, A_role=role_a, B_role=role_b)
 
 def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
     """
