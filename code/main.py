@@ -16,7 +16,8 @@ from opensearchpy import OpenSearch, RequestsHttpConnection
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 sm_client = boto3.client("sagemaker-runtime")
-llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+# llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
 QA_SEP = "=>"
 
 class ErrorCode:
@@ -304,29 +305,54 @@ def update_session(session_id, question, answer, intention):
     return operation_result
 
 
-def Generate(smr_client, llm_endpoint, prompt):
-    parameters = {
-        # "early_stopping": True,
-        "length_penalty": 1.0,
-        "max_new_tokens": 200,
-        "temperature": 0,
-        "min_length": 20,
-        "no_repeat_ngram_size": 200,
-        # "eos_token_id": ['\n']
-    }
-
-    response_model = smr_client.invoke_endpoint(
-        EndpointName=llm_endpoint,
-        Body=json.dumps(
+def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
+    json_ret = None
+    if llm_name == "chatglm":
+        parameters = {
+        "max_length": 2048,
+        "temperature": 0.01,
+        "num_beams": 1, # >1可能会报错，"probability tensor contains either `inf`, `nan` or element < 0"； 即使remove_invalid_values=True也不能解决
+        "do_sample": False,
+        "top_p": 0.7,
+        "logits_processor" : None,
+        # "remove_invalid_values" : True
+        }
+        response_model = smr_client.invoke_endpoint(
+            EndpointName=llm_endpoint,
+            Body=json.dumps(
             {
                 "inputs": prompt,
-                "parameters": parameters
+                "parameters": parameters,
+                "history" : history
             }
-        ),
-        ContentType="application/json",
-    )
-    
-    json_ret = json.loads(response_model['Body'].read().decode('utf8'))
+            ),
+            ContentType="application/json",
+        )
+
+        json_ret = json.loads(response_model['Body'].read().decode('utf8'))
+    else:
+        parameters = {
+            # "early_stopping": True,
+            "length_penalty": 1.0,
+            "max_new_tokens": 200,
+            "temperature": 0,
+            "min_length": 20,
+            "no_repeat_ngram_size": 200,
+            # "eos_token_id": ['\n']
+        }
+
+        response_model = smr_client.invoke_endpoint(
+            EndpointName=llm_endpoint,
+            Body=json.dumps(
+                {
+                    "inputs": prompt,
+                    "parameters": parameters
+                }
+            ),
+            ContentType="application/json",
+        )
+        
+        json_ret = json.loads(response_model['Body'].read().decode('utf8'))
 
     return json_ret['outputs']
 
