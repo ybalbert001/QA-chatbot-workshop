@@ -306,8 +306,9 @@ def update_session(session_id, question, answer, intention):
 
 
 def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
-    json_ret = None
+    answer = None
     if llm_name == "chatglm":
+        logger.info("call chatglm...")
         parameters = {
         "max_length": 2048,
         "temperature": 0.01,
@@ -330,7 +331,10 @@ def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
         )
 
         json_ret = json.loads(response_model['Body'].read().decode('utf8'))
+
+        answer = json_ret['outputs']
     else:
+        logger.info("call bloomz...")
         parameters = {
             # "early_stopping": True,
             "length_penalty": 1.0,
@@ -353,8 +357,9 @@ def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
         )
         
         json_ret = json.loads(response_model['Body'].read().decode('utf8'))
+        answer = json_ret['outputs'][len(prompt):]
 
-    return json_ret['outputs']
+    return answer
 
 
 class QueryType(Enum):
@@ -367,8 +372,7 @@ def intention_classify(post_text, prompt_template, few_shot_example):
     prompt = prompt_template.format(
         fewshot=few_shot_example, question=post_text)
     result = Generate(sm_client, llm_endpoint, prompt)
-    len_prompt = len(prompt)
-    return result[len_prompt:]
+    return result
 
 def intention_detect_prompt_build(post_text, conversations):
     Game_Intention_Classify_Examples="""玩家输入: 介绍一下联盟?
@@ -534,8 +538,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     }
 
     try:
-        llm_generation = Generate(sm_client, llm_endpoint, prompt=final_prompt)
-        answer = llm_generation[len(final_prompt):]
+        answer = Generate(sm_client, llm_endpoint, prompt=final_prompt, llm_name='chatglm')
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
         json_obj['conversations'] = free_chat_coversions
