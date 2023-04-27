@@ -513,6 +513,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
         json_obj['conversations'] = free_chat_coversions
+        json_obj['timestamp'] = time.time()
         json_obj['log_type'] = "all"
         json_obj_str = json.dumps(json_obj, ensure_ascii=False)
     except Exception as e:
