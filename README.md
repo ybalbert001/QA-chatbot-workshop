@@ -19,7 +19,9 @@
 =======
 >>>>>>> b26a45a (add cloudwatch logs parse func of lambda)
 │   ├── kendra_write_job.py              # kendra数据导入脚本 (glue 部署)
-│   └── chatbot_logs_func.py             # 对Cloudwatch输出的日志解析，通过KDF同步到OpenSearch
+│   └── chatbot_logs_func.py             # 对Cloudwatch输出的日志解析，通过KDF同步到OpenSearch (lambda 脚本)
+│   ├── offline_trigger_lambda           # 调度 glue 的 lambda 脚本
+│   └── kendra_write_job.py              # kendra数据导入脚本 (glue 部署)
 ├── docs
 │   ├── Cleanroom_FAQ.txt                # 知识库文件
 │   └── EMR_Best_Practice_FAQ.txt        # EMR Best Practice 知识
