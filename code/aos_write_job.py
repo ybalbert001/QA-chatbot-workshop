@@ -76,8 +76,9 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
 
             documents = []
             if paragraph.lower().find("question:") > -1:
-                question = paragraph.split("\n")[0].replace("Question: ", "")
-                answer = paragraph.split("\n")[1].replace("Answer: ", "")
+                question, answer = paragraph.split("\n", 1)
+                question = question.replace("Question: ", "")
+                answer = answer.replace("Answer: ", "")
                 documents.append({ "doc" : question, "doc_type" : "Q", "answer" : answer, "embedding" : get_st_embedding(smr_client, question)})
             else:
                 documents.append({ "doc" : paragraph, "doc_type" : "P", "answer" : "", "embedding" : get_st_embedding(smr_client, paragraph)})
@@ -94,6 +95,12 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
     response = helpers.bulk(client, get_embs_func)
     return response
 
+
+def split_by(content, sep='Question'):
+    arr = content.split(sep)
+    p_arr = [ f"{sep}{paragraph}" for paragraph in arr ]
+    return p_arr[1:]
+
 def process_s3_uploaded_file(bucket, object_key):
     
     print("********** object_key : " + object_key)
@@ -102,8 +109,7 @@ def process_s3_uploaded_file(bucket, object_key):
     #print("********** body : " + body)
             
     if(len(body) > 0):
-        WriteVecIndexToAOS(body.split("\n\n"), smr_client)
-
+        WriteVecIndexToAOS(split_by(body), smr_client)
 
 #if __name__ == '__main__':
 #paragraph_array = ["Question: 在中国区是否可用？\nAnswer: 目前没有落地中国区的时间表，已经在以下区域推出：美国东部（弗吉尼亚州北部）、美国东部（俄亥俄州）、美国西部（俄勒冈州）、亚太地区（首尔）、亚太地区（新加坡）、亚太地区（悉尼）、亚太地区（东京）、欧洲地区（法兰克福）、欧洲地区（爱尔兰）、欧洲地区（伦敦）和欧洲地区（斯德哥尔摩）","Question: 目前可以支持什么数据源的接入？ \nAnswer: 目前只支持S3，其他数据源近期没有具体计划。"]
