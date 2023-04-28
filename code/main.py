@@ -481,7 +481,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     else:
         query_type = QueryType.Conversation
         free_chat_coversions = [ item for item in session_history if item[2] == "QueryType.Conversation" ]
-        final_prompt = conversion_prompt_build(query_input, free_chat_coversions)
+        final_prompt = conversion_prompt_build(query_input, free_chat_coversions[-2:])
 
     json_obj = {
         "query": query_input,
@@ -498,7 +498,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
         json_obj['conversations'] = free_chat_coversions
-        json_obj['timestamp'] = time.time()
+        json_obj['timestamp'] = int(time.time())
         json_obj['log_type'] = "all"
         json_obj_str = json.dumps(json_obj, ensure_ascii=False)
     except Exception as e:
