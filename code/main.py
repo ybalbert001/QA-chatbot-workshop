@@ -305,9 +305,9 @@ def update_session(session_id, question, answer, intention):
     return operation_result
 
 
-def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
+def Generate(smr_client, llm_endpoint, prompt, llm_name, history=[]):
     answer = None
-    if llm_name == "chatglm":
+    if llm_name == "chatglm-7b":
         logger.info("call chatglm...")
         parameters = {
         "max_length": 2048,
@@ -333,7 +333,7 @@ def Generate(smr_client, llm_endpoint, prompt, llm_name='chatglm', history=[]):
         json_ret = json.loads(response_model['Body'].read().decode('utf8'))
 
         answer = json_ret['outputs']
-    else:
+    elif llm_name == "bloomz-7b":
         logger.info("call bloomz...")
         parameters = {
             # "early_stopping": True,
@@ -368,67 +368,23 @@ class QueryType(Enum):
     Conversation   = "Conversation"       #用户输入的是跟知识库无关的问题
 
 
-def intention_classify(post_text, prompt_template, few_shot_example):
-    prompt = prompt_template.format(
-        fewshot=few_shot_example, question=post_text)
-    result = Generate(sm_client, llm_endpoint, prompt)
-    return result
+# def intention_classify(post_text, prompt_template, few_shot_example):
+#     prompt = prompt_template.format(
+#         fewshot=few_shot_example, question=post_text)
+#     result = Generate(sm_client, llm_endpoint, prompt)
+#     return result
 
-def intention_detect_prompt_build(post_text, conversations):
-    Game_Intention_Classify_Examples="""玩家输入: 介绍一下联盟?
-    输出: 功能相关
-
-    玩家输入: 介绍一下强化部件?
-    输出: 功能相关
-
-    玩家输入:我玩你们的游戏导致失恋了
-    输出: 功能无关
-
-    玩家输入: 我要给你们提个建议！
-    输出: 功能无关
-
-    玩家输入: 今天心情不好
-    输出: 功能无关
-
-    玩家输入: 和女朋友吵架了
-    输出: 功能无关
-
-    玩家输入: 我真的无语了
-    输出: 功能无关
-
-    玩家输入: 心情真的很差，怎么办
-    输出: 功能无关
-
-    玩家输入:怎么才能迁移区服？
-    输出: 功能相关"""
-
-    Game_Intention_Classify_Prompt = """
-    任务定义: 判断玩家输入是否在询问游戏功能相关的问题, 回答 "功能相关" 或者 "功能无关".
-
-    {fewshot}
-
-    玩家输入:{question}
-    输出: """
-    pass
-
-def conversion_prompt_build(post_text, conversations, role_a="玩家", role_b = "Jarvis"):
-    Game_Free_Chat_Examples ="""{A}: 我要给你们提个建议！
-    {B}: 感谢您的支持，我们对玩家的建议都是非常重视的，您可以点击右上角联系客服-我要提交建议填写您的建议内容并提交，我们会转达给团队进行考量。建议提交
-
-    {A}: 我玩你们的游戏导致失恋了
-    {B}: 亲爱的玩家，真的非常抱歉听到这个消息，让您受到了困扰。感情的事情确实很复杂，但请相信，时间会治愈一切。请保持乐观积极的心态，也许未来会有更好的人陪伴您。我们会一直陪在您身边，为您提供游戏中的支持与帮助。请多关注自己的生活，适当调整游戏与生活的平衡。祝您生活愉快，感情美满~(づ｡◕‿‿◕｡)づ
-    """.format(A=role_a, B = role_b)
-
+def conversion_prompt_build(post_text, conversations, role_a="用户", role_b = "AWSBot"):
     chat_history = [ """{}: {}\n{}: {}""".format(role_a, item[0], role_b, item[1]) for item in conversations ]
     chat_histories = "\n\n".join(chat_history)
     chat_histories = f'\n\n{chat_histories}' if len(chat_histories) else ""
 
     # \n\n{fewshot}
-    Game_Free_Chat_Prompt = """{B} 是《口袋奇兵》游戏的智能客服，对待客户一些粗暴的言论能够始终保持礼貌耐心的态度，回答玩家的各种问题以及陪玩家聊天，如以下聊天记录:{chat_history}\n\n{A}: {question}\n{B}: """
-    return Game_Free_Chat_Prompt.format(chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
+    AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
+    return AWS_Free_Chat_Prompt.format(chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
 
 # different scan
-def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="玩家", role_b = "Jarvis"):
+def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="用户", role_b = "AWSBot"):
     """
     Detect User intentions, build prompt for LLM. For Knowledge QA, it will merge all retrieved related document paragraphs into a single prompt
     Parameters examples:
@@ -437,13 +393,13 @@ def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="玩家", role_b = "
     return: prompt string
     """
     qa_pairs = [ doc.split(QA_SEP) for doc, _ in qa_recalls ]
-    qa_fewshots = [ "{}: {}\n{}: {}".format(role_a, pair[0], role_b, pair[1]) for pair in qa_pairs ]
+    qa_fewshots = [ "{}: {}\n{}: {}".format("问题", pair[0], "回答", pair[1]) for pair in qa_pairs ]
     fewshots_str = "\n\n".join(qa_fewshots[-3:])
-    Game_Knowledge_QA_Prompt = """{A_role} 是《口袋奇兵》游戏的智能客服，能够回答玩家的各种问题，比如:\n\n{fewshot}\n\n{A_role}: {question}\n{B_role}: """
+    AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，根据文档中获取的如下资料"{fewshot}"\n\n{B}能回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
 
-    return Game_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, A_role=role_a, B_role=role_b)
+    return AWS_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, A=role_a, B=role_b)
 
-def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
+def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, llm_model_name:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
     """
     Entry point for the Lambda function.
 
@@ -521,7 +477,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         final_prompt = ""
     elif recall_knowledge:
         query_type = QueryType.KnowledgeQuery
-        final_prompt = qa_knowledge_prompt_build(query_input, recall_knowledge, role_a="玩家", role_b = "Jarvis")
+        final_prompt = qa_knowledge_prompt_build(query_input, recall_knowledge)
     else:
         query_type = QueryType.Conversation
         free_chat_coversions = [ item for item in session_history if item[2] == "QueryType.Conversation" ]
@@ -538,7 +494,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     }
 
     try:
-        answer = Generate(sm_client, llm_endpoint, prompt=final_prompt, llm_name='chatglm')
+        answer = Generate(sm_client, llm_model_endpoint, prompt=final_prompt, llm_name=llm_model_name)
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
         json_obj['conversations'] = free_chat_coversions
@@ -572,6 +528,20 @@ def lambda_handler(event, context):
     logger.info(f"event:{event}")
     session_id = event['chat_name']
     question = event['prompt']
+    model_name = event['model']
+
+    model_name = 'chatglm-7b'
+    llm_endpoint = None
+    if model_name == 'chatglm-7b':
+        llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
+    elif model_name == 'bloomz-7b': 
+        llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+    elif model_name == 'LLaMA-7b':
+        pass
+    elif model_name == 'Alpaca':
+        pass
+    else:
+        pass
 
     # 获取当前时间戳
     request_timestamp = time.time()  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
@@ -598,6 +568,8 @@ def lambda_handler(event, context):
     Kendra_result_num = int(os.environ.get("Kendra_result_num", ""))
     # Opensearch_result_num = int(os.environ.get("Opensearch_result_num", ""))
 
+    logger.info(f'model_name : {model_name}')
+    logger.info(f'llm_endpoint : {llm_endpoint}')
     logger.info(f'embedding_endpoint : {embedding_endpoint}')
     logger.info(f'aos_endpoint : {aos_endpoint}')
     logger.info(f'aos_index : {aos_index}')
@@ -607,7 +579,7 @@ def lambda_handler(event, context):
     logger.info(f'Kendra_result_num : {Kendra_result_num}')
     
     main_entry_start = time.time()  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
-    answer = main_entry(session_id, question, embedding_endpoint, llm_endpoint, aos_endpoint, aos_index, aos_knn_field, aos_result_num,
+    answer = main_entry(session_id, question, embedding_endpoint, llm_endpoint, model_name, aos_endpoint, aos_index, aos_knn_field, aos_result_num,
                        Kendra_index_id, Kendra_result_num)
     main_entry_elpase = time.time() - main_entry_start  # 或者使用 time.time_ns() 获取纳秒级别的时间戳
     logger.info(f'runing time of main_entry : {main_entry_elpase}s seconds')
