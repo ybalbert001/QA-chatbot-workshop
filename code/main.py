@@ -471,6 +471,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     answer = None
     final_prompt = None
     query_type = None
+    free_chat_coversions = []
     if exactly_match_result and recall_knowledge: 
         query_type = QueryType.KeywordQuery
         answer = exactly_match_result[0]["doc"]
@@ -494,7 +495,9 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     }
 
     try:
-        answer = Generate(sm_client, llm_model_endpoint, prompt=final_prompt, llm_name=llm_model_name)
+        if final_prompt:
+            answer = Generate(sm_client, llm_model_endpoint, prompt=final_prompt, llm_name=llm_model_name)
+            
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
         json_obj['conversations'] = free_chat_coversions
