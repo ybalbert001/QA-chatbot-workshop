@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from botocore import config
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
@@ -10,6 +11,7 @@ import requests
 import uuid
 # from transformers import AutoTokenizer
 from enum import Enum
+from typing import List
 from opensearchpy import OpenSearch, RequestsHttpConnection
 
 
@@ -19,6 +21,13 @@ sm_client = boto3.client("sagemaker-runtime")
 # llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
 llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
 QA_SEP = "=>"
+AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
+AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，根据文档中获取的如下资料"{fewshot}"\n\n{B}能回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
+A_Role="用户"
+B_Role="AWSBot"
+Fewshot_prefix_Q="问题"
+Fewshot_prefix_A="回答"
+STOP=[f"\n{A_Role}", f"\n{B_Role}"]
 
 class ErrorCode:
     DUPLICATED_INDEX_PREFIX = "DuplicatedIndexPrefix"
@@ -304,8 +313,14 @@ def update_session(session_id, question, answer, intention):
 
     return operation_result
 
+def enforce_stop_tokens(text: str, stop: List[str]) -> str:
+    """Cut off the text as soon as any stop words occur."""
+    if stop is None:
+        return text
+    
+    return re.split("|".join(stop), text)[0]
 
-def Generate(smr_client, llm_endpoint, prompt, llm_name, history=[]):
+def Generate(smr_client, llm_endpoint, prompt, llm_name, stop=None, history=[]):
     answer = None
     if llm_name == "chatglm-7b":
         logger.info("call chatglm...")
@@ -359,7 +374,7 @@ def Generate(smr_client, llm_endpoint, prompt, llm_name, history=[]):
         json_ret = json.loads(response_model['Body'].read().decode('utf8'))
         answer = json_ret['outputs'][len(prompt):]
 
-    return answer
+    return enforce_stop_tokens(answer, stop)
 
 
 class QueryType(Enum):
@@ -374,17 +389,17 @@ class QueryType(Enum):
 #     result = Generate(sm_client, llm_endpoint, prompt)
 #     return result
 
-def conversion_prompt_build(post_text, conversations, role_a="用户", role_b = "AWSBot"):
+def conversion_prompt_build(post_text, conversations, role_a, role_b):
     chat_history = [ """{}: {}\n{}: {}""".format(role_a, item[0], role_b, item[1]) for item in conversations ]
     chat_histories = "\n\n".join(chat_history)
     chat_histories = f'\n\n{chat_histories}' if len(chat_histories) else ""
 
     # \n\n{fewshot}
-    AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
+    
     return AWS_Free_Chat_Prompt.format(chat_history=chat_histories, question=post_text, A=role_a, B=role_b)
 
 # different scan
-def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="用户", role_b = "AWSBot"):
+def qa_knowledge_prompt_build(post_text, qa_recalls, role_a, role_b):
     """
     Detect User intentions, build prompt for LLM. For Knowledge QA, it will merge all retrieved related document paragraphs into a single prompt
     Parameters examples:
@@ -393,10 +408,8 @@ def qa_knowledge_prompt_build(post_text, qa_recalls, role_a="用户", role_b = "
     return: prompt string
     """
     qa_pairs = [ doc.split(QA_SEP) for doc, _ in qa_recalls ]
-    qa_fewshots = [ "{}: {}\n{}: {}".format("问题", pair[0], "回答", pair[1]) for pair in qa_pairs ]
+    qa_fewshots = [ "{}: {}\n{}: {}".format(Fewshot_prefix_Q, pair[0], Fewshot_prefix_A, pair[1]) for pair in qa_pairs ]
     fewshots_str = "\n\n".join(qa_fewshots[-3:])
-    AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，根据文档中获取的如下资料"{fewshot}"\n\n{B}能回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
-
     return AWS_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, A=role_a, B=role_b)
 
 def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, llm_model_endpoint:str, llm_model_name:str, aos_endpoint:str, aos_index:str, aos_knn_field:str, aos_result_num:int, kendra_index_id:str, kendra_result_num:int):
@@ -478,11 +491,12 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         final_prompt = ""
     elif recall_knowledge:
         query_type = QueryType.KnowledgeQuery
-        final_prompt = qa_knowledge_prompt_build(query_input, recall_knowledge)
+
+        final_prompt = qa_knowledge_prompt_build(query_input, recall_knowledge, A_Role, B_Role)
     else:
         query_type = QueryType.Conversation
         free_chat_coversions = [ item for item in session_history if item[2] == "QueryType.Conversation" ]
-        final_prompt = conversion_prompt_build(query_input, free_chat_coversions[-2:])
+        final_prompt = conversion_prompt_build(query_input, free_chat_coversions[-2:], A_Role, B_Role)
 
     json_obj = {
         "query": query_input,
@@ -496,7 +510,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
 
     try:
         if final_prompt:
-            answer = Generate(sm_client, llm_model_endpoint, prompt=final_prompt, llm_name=llm_model_name)
+            answer = Generate(sm_client, llm_model_endpoint, prompt=final_prompt, llm_name=llm_model_name, stop=STOP)
             
         json_obj['session_id'] = session_id
         json_obj['chatbot_answer'] = answer
