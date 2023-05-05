@@ -477,6 +477,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         return combine_result
     
     recall_knowledge = combine_recalls(opensearch_knn_respose, opensearch_query_response)
+    recall_knowledge.sort(key=lambda x:x[1])
 
     # 6. check is it keyword search
     exactly_match_result = aos_search(aos_endpoint, aos_index, "doc", query_input, exactly_match=True)
