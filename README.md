@@ -7,7 +7,6 @@
 ├── code
 │   ├── main.py                          # lambda 部署主文件
 │   ├── aos_write_job                    # aos 倒排和knn索引构建脚本 (glue 部署)
-│   ├── kendra_write_job.py              # kendra数据导入脚本 (glue 部署)
 │   ├── chatbot_logs_func.py             # 对Cloudwatch输出的日志解析，通过KDF同步到OpenSearch (lambda 脚本)
 │   ├── offline_trigger_lambda.py        # 调度 glue 的 lambda 脚本
 │   ├── QA_auto_generator.py             # 基于文档自动生成FAQ知识库 (离线前置处理)
@@ -42,3 +41,18 @@
 
 - 系统架构
   ![arch](./arch.png)
+
+- Script/Notebook 使用方法
+  - QA_auto_generator.py 
+    
+    ```shell
+    # step1: 设置openai key的环境变量
+    export OPENAI_API_KEY={key}
+    
+    # step2: 执行
+    python QA_auto_generator.py --input_file ./xx.pdf --output_file ./FAQ.txt --product "Midea Dishwasher"
+    ```
+    
+  - kendra_write_job.py
+    
+    + 
