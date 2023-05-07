@@ -73,6 +73,7 @@ import json
 import gzip
 import boto3
 import logging
+from datetime import datetime
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -95,10 +96,13 @@ def transformLogEvent(log_event):
     msglist = log_msg.split('\t')
     if len(msglist) != 4:
         return ''
-    ts = log_event['timestamp']
+    timestamp = log_event['timestamp']
+    now = datetime.utcnow().isoformat()
     sessionid = msglist[2]
     msg = msglist[3]
     msgjson = json.loads(msg)
+    msgjson["ts"] = now
+    msgjson.update({"timestamp": timestamp})
     return json.dumps(msgjson)
 
 
@@ -108,7 +112,7 @@ def processRecords(records):
         data = loadJsonGzipBase64(r['data'])
         logger.info("data:" + json.dumps(data))
         recId = r['recordId']
-        
+
         # CONTROL_MESSAGE are sent by CWL to check if the subscription is reachable.
         # They do not contain actual data.
         if data['messageType'] == 'CONTROL_MESSAGE':
@@ -262,7 +266,7 @@ def lambda_handler(event, context):
             else:
                 rec['result'] = 'ProcessingFailed'
                 print(('Record %s contains only one log event but is still too large after processing (%d bytes), ' +
-                    'marking it as %s') % (rec['recordId'], len(rec['data']), rec['result']))
+                       'marking it as %s') % (rec['recordId'], len(rec['data']), rec['result']))
             del rec['data']
         else:
             projectedSize += len(rec['data']) + len(rec['recordId'])
