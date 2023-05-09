@@ -14,6 +14,7 @@ from langchain.llms.sagemaker_endpoint import ContentHandlerBase
 from langchain.docstore.document import Document
 from langchain.memory import ConversationBufferWindowMemory
 from langchain import LLMChain
+from sagemaker.huggingface import HuggingFaceModel
 
 source_includes = ["question","answer"]
 runtime= boto3.client('runtime.sagemaker')
@@ -105,6 +106,18 @@ def get_vector_by_sm_endpoint(questions,sm_client,endpoint_name,parameters):
     return embeddings
 
 
+
+########get embedding vector by SM HF Model Wrapper########
+# input:
+#  questions:question texts(list)
+#  sm_endpoint:Sagemaker embedding endpoint(huggingface-inference-text2vec-base-chinese-v1)
+# return:
+#  result : vector of embeded text
+#############################################
+def get_vector_by_hf_model(questions,endpoint_name):
+    hfp = sagemaker.huggingface.model.HuggingFacePredictor(endpoint_name)
+    return hfp.predict({'inputs':questions})[0][0][0]
+
 ########get embedding vector by lanchain vector search########
 # input:
 #  questions:question texts(list0
@@ -195,7 +208,7 @@ def intension_detection_by_aos_field(question, hostname, username,passwd, index,
 #############################################################
 def intension_detection_by_sm_endpoint(questions,sm_client,endpoint_name):
     payload={"ask":questions+"\n"+
-            "问题：内容分类,以上属于闲聊还是专业问题？"}
+                   "问题：内容分类,以上属于闲聊还是专业问题？"}
     response_model = sm_client.invoke_endpoint(
         EndpointName=endpoint_name,
         Body=json.dumps(
