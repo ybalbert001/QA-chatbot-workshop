@@ -13,13 +13,14 @@ import uuid
 from enum import Enum
 from typing import List
 from opensearchpy import OpenSearch, RequestsHttpConnection
+import langchain
 
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 sm_client = boto3.client("sagemaker-runtime")
 # llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
-llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
+chat_session_table = os.environ.get('chat_session_table')
 QA_SEP = "=>"
 AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
 AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，根据文档中获取的如下资料"{fewshot}"\n\n{B}能回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
@@ -250,7 +251,7 @@ def aos_search(host, index_name, field, query_term, exactly_match=False, size=10
 
 def get_session(session_id):
 
-    table_name = "chatbot-session"
+    table_name = chat_session_table
     dynamodb = boto3.resource('dynamodb')
 
     # table name
@@ -276,7 +277,7 @@ def get_session(session_id):
 #           failed
 def update_session(session_id, question, answer, intention):
 
-    table_name = "chatbot-session"
+    table_name = chat_session_table
     dynamodb = boto3.resource('dynamodb')
 
     # table name
@@ -551,14 +552,17 @@ def lambda_handler(event, context):
     model_name = 'chatglm-7b'
     llm_endpoint = None
     if model_name == 'chatglm-7b':
-        llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
+        llm_endpoint = os.environ.get('llm_chatglm_endpoint')
     elif model_name == 'bloomz-7b': 
-        llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
+        llm_endpoint =  os.environ.get('llm_bloomz_endpoint')
     elif model_name == 'LLaMA-7b':
+        llm_endpoint =  os.environ.get('llm_llama_endpoint')
         pass
     elif model_name == 'Alpaca':
+        llm_endpoint =  os.environ.get('llm_alpaca_endpoint')
         pass
     else:
+        llm_endpoint = os.environ.get('llm_default_endpoint')
         pass
 
     # 获取当前时间戳
