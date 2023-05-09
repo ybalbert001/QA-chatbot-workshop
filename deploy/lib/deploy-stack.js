@@ -42,7 +42,6 @@ export class DeployStack extends Stack {
     const region = props.env.region;
     const aos_existing_endpoint = props.env.aos_existing_endpoint;
 
-
     const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
     const vpc = vpcStack.vpc;
     const subnets = vpcStack.subnets;
