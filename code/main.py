@@ -13,7 +13,11 @@ import uuid
 from enum import Enum
 from typing import List
 from opensearchpy import OpenSearch, RequestsHttpConnection
+from requests_aws4auth import AWS4Auth
 import langchain
+credentials = boto3.Session().get_credentials()
+region = boto3.Session().region_name
+awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
 
 
 logger = logging.getLogger()
@@ -187,14 +191,19 @@ def search_using_aos_knn(q_embedding, hostname, index, size=10):
             }
         }
     }
-    r = requests.post("https://"+hostname + "/" + index +
-                        '/_search', headers=headers, json=query)
-    
-    results = json.loads(r.text)["hits"]["hits"]
     opensearch_knn_respose = []
-    for item in results:
-        opensearch_knn_respose.append( {'doc':"{}{}{}".format(item['_source']['doc'], QA_SEP, item['_source']['answer']),"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
-    return opensearch_knn_respose
+    try:
+        r = requests.post("https://"+hostname + "/" + index +
+                        '/_search', headers=headers, json=query)
+        results = json.loads(r.text)["hits"]["hits"]
+        for item in results:
+            opensearch_knn_respose.append( {'doc':"{}{}{}".format(item['_source']['doc'], QA_SEP, item['_source']['answer']),"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
+        return opensearch_knn_respose
+    except Exception as e:
+        print(f'knn query exception:{str(e)}')
+        return []
+    
+
 
 def aos_search(host, index_name, field, query_term, exactly_match=False, size=10):
     """
@@ -207,6 +216,7 @@ def aos_search(host, index_name, field, query_term, exactly_match=False, size=10
     """
     client = OpenSearch(
         hosts=[{'host': host, 'port': 443}],
+        http_auth = awsauth,
         use_ssl=True,
         verify_certs=True,
         connection_class=RequestsHttpConnection
