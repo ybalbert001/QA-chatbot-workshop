@@ -22,7 +22,7 @@ sm_client = boto3.client("sagemaker-runtime")
 llm_endpoint = 'chatglm-2023-04-27-06-17-07-867-endpoint'
 QA_SEP = "=>"
 AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
-AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，根据文档中获取的如下资料"{fewshot}"\n\n{B}能回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
+AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，请根据文档中获取的反括号中的资料\n```\n{fewshot}\n```\n回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
 A_Role="用户"
 B_Role="AWSBot"
 Fewshot_prefix_Q="问题"
@@ -404,10 +404,10 @@ def qa_knowledge_prompt_build(post_text, qa_recalls, role_a, role_b):
     Detect User intentions, build prompt for LLM. For Knowledge QA, it will merge all retrieved related document paragraphs into a single prompt
     Parameters examples:
         post_text : "介绍下强化部件"
-        qa_recalls: [ doc1, doc2, ]
+        qa_recalls: [ {"doc" : doc1, "score" : score}, ]
     return: prompt string
     """
-    qa_pairs = [ doc.split(QA_SEP) for doc, _ in qa_recalls ]
+    qa_pairs = [ obj["doc"].split(QA_SEP) for obj in qa_recalls ]
     qa_fewshots = [ "{}: {}\n{}: {}".format(Fewshot_prefix_Q, pair[0], Fewshot_prefix_A, pair[1]) for pair in qa_pairs ]
     fewshots_str = "\n\n".join(qa_fewshots[-3:])
     return AWS_Knowledge_QA_Prompt.format(fewshot=fewshots_str, question=post_text, A=role_a, B=role_b)
@@ -464,7 +464,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         '''
         filter knn_result if the result don't appear in filter_inverted_result
         '''
-        knn_threshold = 0.3
+        knn_threshold = 0.2
         inverted_theshold = 5.0
         filter_knn_result = { item["doc"] : item["score"] for item in opensearch_knn_respose if item["score"]> knn_threshold }
         filter_inverted_result = { item["doc"] : item["score"] for item in opensearch_query_response if item["score"]> inverted_theshold }
@@ -472,12 +472,12 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
         combine_result = []
         for doc, score in filter_knn_result.items():
             if doc in filter_inverted_result.keys():
-                combine_result.append(( doc, score))
+                combine_result.append({ "doc" : doc, "score" : score })
 
         return combine_result
     
     recall_knowledge = combine_recalls(opensearch_knn_respose, opensearch_query_response)
-    recall_knowledge.sort(key=lambda x:x[1])
+    recall_knowledge.sort(key=lambda x: x["score"])
 
     # 6. check is it keyword search
     exactly_match_result = aos_search(aos_endpoint, aos_index, "doc", query_input, exactly_match=True)
