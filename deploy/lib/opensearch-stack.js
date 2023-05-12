@@ -33,7 +33,7 @@ constructor(scope, id, props) {
           },
         ebs: {
         volumeSize: 300,
-        volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD,
+        volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3,
         },
       });
       const domainEndpoint = devDomain.domainEndpoint;
