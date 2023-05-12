@@ -38,22 +38,22 @@ export class DeployStack extends Stack {
     const region = props.env.region;
     const aos_existing_endpoint = props.env.aos_existing_endpoint;
 
+
     const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
     const vpc = vpcStack.vpc;
     const subnets = vpcStack.subnets;
     const securityGroups = vpcStack.securityGroups;
 
-      //Create open search if the aos endpoint not provided
+      // Create open search if the aos endpoint not provided
     let opensearch_endpoint=aos_existing_endpoint;
     if (!aos_existing_endpoint || aos_existing_endpoint === 'optional'){
         const opensearch = new OpenSearchStack(this,'os-chat-dev',
-              {vpc:vpc,subnets:subnets,securityGroups:securityGroups});
+              {vpc:vpc});
         opensearch_endpoint = opensearch.domainEndpoint;
         opensearch.addDependency(vpcStack);
     }
     new CfnOutput(this,'opensearch endpoint',{value:opensearch_endpoint});
 
-    
     const chat_session_table = new Table(this, "chatbot_session_info", {
       partitionKey: {
         name: "session-id",

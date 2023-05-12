@@ -20,13 +20,6 @@ constructor(scope, id, props) {
         version: EngineVersion.OPENSEARCH_2_3,
         removalPolicy: RemovalPolicy.DESTROY,
         vpc:props.vpc,
-        subnets:props.subnets,
-        securityGroups:props.securityGroups,
-        // enableVersionUpgrade: true,
-        // useUnsignedBasicAuth: true,
-        // zoneAwareness: {
-        //     enabled: true,
-        //   },
           capacity: {
             dataNodes: 1,
             dataNodeInstanceType:'r6g.large.search'
@@ -36,8 +29,7 @@ constructor(scope, id, props) {
         volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3,
         },
       });
-      const domainEndpoint = devDomain.domainEndpoint;
-      this.domainEndpoint = domainEndpoint;
+      this.domainEndpoint = devDomain.domainEndpoint;;
       
 }
 }
