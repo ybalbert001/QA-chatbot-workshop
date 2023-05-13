@@ -132,7 +132,8 @@ export class DeployStack extends Stack {
 
     const offline_trigger_lambda =  new lambda.Function(this, 'offline_trigger_lambda', {
           environment: {
-            glue_jobname:gluestack.jobName
+            glue_jobname:gluestack.jobName,
+            embedding_endpoint:process.env.embedding_endpoint
           },
           runtime: lambda.Runtime.PYTHON_3_10,
           timeout: Duration.minutes(1),
