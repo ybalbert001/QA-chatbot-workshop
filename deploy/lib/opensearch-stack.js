@@ -39,7 +39,7 @@ constructor(scope, id, props) {
 
       devDomain.addAccessPolicies(new iam.PolicyStatement({
 
-        actions: ['es:ESHttpGet'],
+        actions: ['es:*'],
         effect: iam.Effect.ALLOW,
         principals:[new iam.AnyPrincipal()],
         resources: [`${devDomain.domainArn}/*`],
