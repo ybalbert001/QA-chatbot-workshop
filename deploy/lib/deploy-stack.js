@@ -11,7 +11,7 @@ import { VpcStack } from './vpc-stack.js';
 import {GlueStack} from './glue-stack.js';
 import {OpenSearchStack} from './opensearch-stack.js';
 import {ApiGatewayStack} from './apigw-stack.js';
-import { ALBStack } from "./alb-stack.js";
+// import { ALBStack } from "./alb-stack.js";
 import { Ec2Stack } from "./ec2-stack.js";
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
@@ -69,8 +69,8 @@ export class DeployStack extends Stack {
     // securityGroups[0].addIngressRule(ec2stack.securityGroup, ec2.Port.allTraffic(), 'Allow SSH Access')
 
 
-    const albstack = new ALBStack(this,'ALBstack',{vpc:vpc});
-    new CfnOutput(this,'ALB dnsname',{value:albstack.dnsName});
+    // const albstack = new ALBStack(this,'ALBstack',{vpc:vpc,instanceId:ec2stack.instanceId});
+    // new CfnOutput(this,'ALB dnsname',{value:albstack.dnsName});
 
 
 
