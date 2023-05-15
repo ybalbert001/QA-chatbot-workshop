@@ -333,7 +333,7 @@ def enforce_stop_tokens(text: str, stop: List[str]) -> str:
 
 def Generate(smr_client, llm_endpoint, prompt, llm_name, stop=None, history=[]):
     answer = None
-    if llm_name == "chatglm-7b":
+    if llm_name == "chatglm":
         logger.info("call chatglm...")
         parameters = {
         "max_length": 2048,
@@ -359,7 +359,7 @@ def Generate(smr_client, llm_endpoint, prompt, llm_name, stop=None, history=[]):
         json_ret = json.loads(response_model['Body'].read().decode('utf8'))
 
         answer = json_ret['outputs']
-    elif llm_name == "bloomz-7b":
+    elif llm_name == "bloomz":
         logger.info("call bloomz...")
         parameters = {
             # "early_stopping": True,
@@ -555,21 +555,23 @@ def lambda_handler(event, context):
     # "max_tokens": 2048
     # "temperature": 0.9
     logger.info(f"event:{event}")
-    session_id = event['chat_name']
-    question = event['prompt']
-    model_name = event['model']
+    input_json = json.loads(event['body'])
+    session_id = input_json['chat_name']
+    question = input_json['prompt']
+    model_name = input_json['model']
+    embedding_endpoint = input_json['embedding_model'] 
 
-    model_name = 'chatglm-7b'
+    # model_name = 'chatglm-7b'
     llm_endpoint = None
-    if model_name == 'chatglm-7b':
-        llm_endpoint = os.environ.get('llm_chatglm_endpoint')
-    elif model_name == 'bloomz-7b': 
-        llm_endpoint =  os.environ.get('llm_bloomz_endpoint')
-    elif model_name == 'LLaMA-7b':
-        llm_endpoint =  os.environ.get('llm_llama_endpoint')
+    if model_name == 'chatglm':
+        llm_endpoint = os.environ.get('llm_{}_endpoint'.format(model_name))
+    elif model_name == 'bloomz': 
+        llm_endpoint =  os.environ.get('llm_{}_endpoint'.format(model_name))
+    elif model_name == 'llama':
+        llm_endpoint =  os.environ.get('llm_{}_endpoint'.format(model_name))
         pass
-    elif model_name == 'Alpaca':
-        llm_endpoint =  os.environ.get('llm_alpaca_endpoint')
+    elif model_name == 'alpaca':
+        llm_endpoint =  os.environ.get('llm_{}_endpoint'.format(model_name))
         pass
     else:
         llm_endpoint = os.environ.get('llm_default_endpoint')
@@ -590,7 +592,7 @@ def lambda_handler(event, context):
 
     # 1. 获取环境变量
 
-    embedding_endpoint = os.environ.get("embedding_endpoint", "")
+    # embedding_endpoint = os.environ.get("embedding_endpoint", "")
     aos_endpoint = os.environ.get("aos_endpoint", "")
     aos_index = os.environ.get("aos_index", "")
     aos_knn_field = os.environ.get("aos_knn_field", "")
