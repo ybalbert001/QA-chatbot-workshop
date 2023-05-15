@@ -5,6 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export class OpenSearchStack extends NestedStack {
     domainEndpoint;
+    domain;
 
 /**
    *
@@ -17,11 +18,17 @@ constructor(scope, id, props) {
 
 
     const devDomain = new Domain(this, 'Domain', {
-        version: EngineVersion.OPENSEARCH_2_3,
+        version: EngineVersion.OPENSEARCH_2_5,
         removalPolicy: RemovalPolicy.DESTROY,
         vpc:props.vpc,
-          capacity: {
-            dataNodes: 1,
+        zoneAwareness: {
+          enabled:true
+        },
+        // vpcSubnets:{
+        //   subnets: props.subnets,
+        // },
+        capacity: {
+            dataNodes: 2,
             dataNodeInstanceType:'r6g.large.search'
           },
         ebs: {
@@ -29,7 +36,8 @@ constructor(scope, id, props) {
         volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3,
         },
       });
-      this.domainEndpoint = devDomain.domainEndpoint;;
+      this.domainEndpoint = devDomain.domainEndpoint;
+      this.domain = devDomain;
       
 }
 }

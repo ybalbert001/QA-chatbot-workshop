@@ -11,6 +11,7 @@ import { VpcStack } from './vpc-stack.js';
 import {GlueStack} from './glue-stack.js';
 import {OpenSearchStack} from './opensearch-stack.js';
 import {ApiGatewayStack} from './apigw-stack.js';
+import { ALBStack } from "./alb-stack.js";
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dotenv from "dotenv";
@@ -46,13 +47,19 @@ export class DeployStack extends Stack {
 
       // Create open search if the aos endpoint not provided
     let opensearch_endpoint=aos_existing_endpoint;
+    let opensearchStack;
     if (!aos_existing_endpoint || aos_existing_endpoint === 'optional'){
-        const opensearch = new OpenSearchStack(this,'os-chat-dev',
-              {vpc:vpc});
-        opensearch_endpoint = opensearch.domainEndpoint;
-        opensearch.addDependency(vpcStack);
+         opensearchStack = new OpenSearchStack(this,'os-chat-dev',
+              {vpc:vpc,subnets:subnets});
+        opensearch_endpoint = opensearchStack.domainEndpoint;
+        opensearchStack.addDependency(vpcStack);
     }
     new CfnOutput(this,'opensearch endpoint',{value:opensearch_endpoint});
+
+
+    const albstack = new ALBStack(this,'ALBstack',{vpc:vpc});
+    new CfnOutput(this,'ALB dnsname',{value:albstack.dnsName});
+
 
     const chat_session_table = new Table(this, "chatbot_session_info", {
       partitionKey: {
