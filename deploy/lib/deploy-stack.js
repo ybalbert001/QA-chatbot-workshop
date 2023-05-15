@@ -12,9 +12,12 @@ import {GlueStack} from './glue-stack.js';
 import {OpenSearchStack} from './opensearch-stack.js';
 import {ApiGatewayStack} from './apigw-stack.js';
 import { ALBStack } from "./alb-stack.js";
+import { Ec2Stack } from "./ec2-stack.js";
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dotenv from "dotenv";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+
 dotenv.config();
 
 import path from "path";
@@ -45,20 +48,30 @@ export class DeployStack extends Stack {
     const subnets = vpcStack.subnets;
     const securityGroups = vpcStack.securityGroups;
 
+    const ec2stack = new Ec2Stack(this,'Ec2Stack',{vpc:vpc,securityGroup:securityGroups[0]});
+    new CfnOutput(this, 'EC2 Proxy Address', { value: ec2stack.dnsName });
+    new CfnOutput(this, 'Download Key Command', { value: 'aws secretsmanager get-secret-value --secret-id ec2-ssh-key/cdk-keypair/private --query SecretString --output text > cdk-key.pem && chmod 400 cdk-key.pem' })
+    new CfnOutput(this, 'ssh command', { value: 'ssh -i cdk-key.pem -o IdentitiesOnly=yes ec2-user@' + ec2stack.dnsName})
+
+
       // Create open search if the aos endpoint not provided
     let opensearch_endpoint=aos_existing_endpoint;
     let opensearchStack;
     if (!aos_existing_endpoint || aos_existing_endpoint === 'optional'){
          opensearchStack = new OpenSearchStack(this,'os-chat-dev',
-              {vpc:vpc,subnets:subnets});
+              {vpc:vpc,subnets:subnets,securityGroup:securityGroups[0]});
         opensearch_endpoint = opensearchStack.domainEndpoint;
         opensearchStack.addDependency(vpcStack);
     }
     new CfnOutput(this,'opensearch endpoint',{value:opensearch_endpoint});
 
+    // allow the ec2 sg traffic  
+    // securityGroups[0].addIngressRule(ec2stack.securityGroup, ec2.Port.allTraffic(), 'Allow SSH Access')
+
 
     const albstack = new ALBStack(this,'ALBstack',{vpc:vpc});
     new CfnOutput(this,'ALB dnsname',{value:albstack.dnsName});
+
 
 
     const chat_session_table = new Table(this, "chatbot_session_info", {

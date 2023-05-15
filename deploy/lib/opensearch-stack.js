@@ -1,11 +1,13 @@
 import { CfnOutput, NestedStack,RemovalPolicy }  from 'aws-cdk-lib';
 import {EngineVersion,Domain} from 'aws-cdk-lib/aws-opensearchservice';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from "aws-cdk-lib/aws-iam";
 
 
 export class OpenSearchStack extends NestedStack {
     domainEndpoint;
     domain;
+    sg;
 
 /**
    *
@@ -24,9 +26,7 @@ constructor(scope, id, props) {
         zoneAwareness: {
           enabled:true
         },
-        // vpcSubnets:{
-        //   subnets: props.subnets,
-        // },
+        securityGroups: [props.securityGroup],
         capacity: {
             dataNodes: 2,
             dataNodeInstanceType:'r6g.large.search'
@@ -36,8 +36,20 @@ constructor(scope, id, props) {
         volumeType: ec2.EbsDeviceVolumeType.GENERAL_PURPOSE_SSD_GP3,
         },
       });
+
+      devDomain.addAccessPolicies(new iam.PolicyStatement({
+
+        actions: ['es:ESHttpGet'],
+        effect: iam.Effect.ALLOW,
+        principals:[new iam.AnyPrincipal()],
+        resources: [`${devDomain.domainArn}/*`],
+      }))
+
+
       this.domainEndpoint = devDomain.domainEndpoint;
       this.domain = devDomain;
-      
+
+    
+
 }
 }
