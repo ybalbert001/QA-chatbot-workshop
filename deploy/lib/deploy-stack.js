@@ -51,7 +51,7 @@ export class DeployStack extends Stack {
     new CfnOutput(this, 'EC2 Proxy Address', { value: ec2stack.dnsName });
     new CfnOutput(this, 'Download Key Command', { value: 'aws secretsmanager get-secret-value --secret-id ec2-ssh-key/cdk-keypair/private --query SecretString --output text > cdk-key.pem && chmod 400 cdk-key.pem' })
     new CfnOutput(this, 'ssh command', { value: 'ssh -i cdk-key.pem -o IdentitiesOnly=yes ec2-user@' + ec2stack.dnsName})
-
+    ec2stack.addDependency(vpcStack);
 
       // Create open search if the aos endpoint not provided
     let opensearch_endpoint=aos_existing_endpoint;

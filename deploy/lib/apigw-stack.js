@@ -85,7 +85,7 @@ export class ApiGatewayStack extends NestedStack {
     this.endpoint = api.url;
     new CfnOutput(this, `API gateway endpoint url`,{value:`${api.url}`});
 
-    const fnIntegration = new LambdaIntegration(lambda_fn);
+    const fnIntegration = new LambdaIntegration(lambda_fn,{proxy:false});
     api.root.addMethod('POST', fnIntegration);
 
     }
