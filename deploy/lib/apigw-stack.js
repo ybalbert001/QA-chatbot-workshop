@@ -1,6 +1,6 @@
 import { NestedStack,Duration, CfnOutput }  from 'aws-cdk-lib';
 import { LambdaIntegration, MockIntegration,RestApi,PassthroughBehavior,
-   TokenAuthorizer, Cors,ResponseType,AwsIntegration,ContentHandling } from 'aws-cdk-lib/aws-apigateway';
+   TokenAuthorizer, Cors,ResponseType,AwsIntegration,ContentHandling,EndpointType } from 'aws-cdk-lib/aws-apigateway';
 import * as iam from "aws-cdk-lib/aws-iam";
 
 export function addCorsOptions(apiResource) {
@@ -51,11 +51,14 @@ export class ApiGatewayStack extends NestedStack {
 
     const api = new RestApi(this, 'MainBrainProxy', {
       cloudWatchRole:true,
-        defaultCorsPreflightOptions: {
-          allowOrigins: Cors.ALL_ORIGINS,
-          allowHeaders: Cors.DEFAULT_HEADERS,
-          allowMethods: Cors.ALL_METHODS
-        },
+      endpointConfiguration: {
+        types: [EndpointType.REGIONAL],
+      },
+      defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowHeaders: Cors.DEFAULT_HEADERS,
+        allowMethods: Cors.ALL_METHODS
+      },
     });
 
     api.addGatewayResponse('cors1',{  

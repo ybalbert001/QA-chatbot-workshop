@@ -555,11 +555,11 @@ def lambda_handler(event, context):
     # "max_tokens": 2048
     # "temperature": 0.9
     logger.info(f"event:{event}")
-    input_json = json.loads(event['body'])
-    session_id = input_json['chat_name']
-    question = input_json['prompt']
-    model_name = input_json['model']
-    embedding_endpoint = input_json['embedding_model'] 
+    # input_json = json.loads(event['body'])
+    session_id = event['chat_name']
+    question = event['prompt']
+    model_name = event['model']
+    embedding_endpoint = event['embedding_model'] 
 
     # model_name = 'chatglm-7b'
     llm_endpoint = None
