@@ -1,6 +1,6 @@
 import { NestedStack,Duration, CfnOutput }  from 'aws-cdk-lib';
 import { LambdaIntegration, MockIntegration,RestApi,PassthroughBehavior,
-   TokenAuthorizer, Cors,ResponseType,AwsIntegration,ContentHandling,EndpointType } from 'aws-cdk-lib/aws-apigateway';
+   TokenAuthorizer, Cors,ResponseType,AwsIntegration,ContentHandling,EndpointType,EmptyModel} from 'aws-cdk-lib/aws-apigateway';
 import * as iam from "aws-cdk-lib/aws-iam";
 
 export function addCorsOptions(apiResource) {
@@ -85,8 +85,20 @@ export class ApiGatewayStack extends NestedStack {
     this.endpoint = api.url;
     new CfnOutput(this, `API gateway endpoint url`,{value:`${api.url}`});
 
-    const fnIntegration = new LambdaIntegration(lambda_fn,{proxy:false});
-    api.root.addMethod('POST', fnIntegration);
+    const fnIntegration = new LambdaIntegration(lambda_fn,{
+      proxy:false,
+      integrationResponses:[{statusCode:'200'}]
+    });
+    const postMethod = api.root.addMethod('POST', fnIntegration,
+    {
+      methodResponses:[{
+        statusCode: '200',
+        responseModels: {
+          'application/json': new EmptyModel(),
+        }
+      }
+      ]
+    });
 
     }
 }
