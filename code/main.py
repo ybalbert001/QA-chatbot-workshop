@@ -26,8 +26,8 @@ sm_client = boto3.client("sagemaker-runtime")
 # llm_endpoint = 'bloomz-7b1-mt-2023-04-19-09-41-24-189-endpoint'
 chat_session_table = os.environ.get('chat_session_table')
 QA_SEP = "=>"
-AWS_Free_Chat_Prompt = """{B} 是云服务AWS的智能客服机器人，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
-AWS_Knowledge_QA_Prompt = """{B}是云服务AWS的智能客服机器人，请根据文档中获取的反括号中的资料\n```\n{fewshot}\n```\n回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
+AWS_Free_Chat_Prompt = """你是云服务AWS的智能客服机器人{B}，能够回答{A}的各种问题以及陪{A}聊天，如:{chat_history}\n\n{A}: {question}\n{B}: """
+AWS_Knowledge_QA_Prompt = """你是云服务AWS的智能客服机器人{B}，请严格根据反括号中的资料提取相关信息\n```\n{fewshot}\n```\n回答{A}的各种问题，比如:\n\n{A}: {question}\n{B}: """
 A_Role="用户"
 B_Role="AWSBot"
 Fewshot_prefix_Q="问题"
@@ -489,6 +489,7 @@ def main_entry(session_id:str, query_input:str, embedding_model_endpoint:str, ll
     
     recall_knowledge = combine_recalls(opensearch_knn_respose, opensearch_query_response)
     recall_knowledge.sort(key=lambda x: x["score"])
+    recall_knowledge = recall_knowledge[-2:]
 
     # 6. check is it keyword search
     exactly_match_result = aos_search(aos_endpoint, aos_index, "doc", query_input, exactly_match=True)
