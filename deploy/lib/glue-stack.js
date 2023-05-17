@@ -38,6 +38,7 @@ export class GlueStack extends NestedStack {
             script: glue.Code.fromAsset(path.join(__dirname, '../../code/aos_write_job.py')),
           }),
           // jobName:'chatbot-from-s3-to-aos',
+          maxConcurrentRuns:3,
           connections:[connection],
           maxCapacity:1,
           defaultArguments:{
