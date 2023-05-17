@@ -17,6 +17,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dotenv from "dotenv";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as cdk from 'aws-cdk-lib';
 
 dotenv.config();
 
@@ -40,6 +41,7 @@ export class DeployStack extends Stack {
     // const region = process.env.CDK_DEFAULT_REGION;
     // const account = process.env.CDK_DEFAULT_ACCOUNT;
     const region = props.env.region;
+    const account_id = cdk.Stack.of(this).account;
     const aos_existing_endpoint = props.env.aos_existing_endpoint;
 
     const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
@@ -190,7 +192,45 @@ export class DeployStack extends Stack {
     const restapi = new ApiGatewayStack(this,'ChatBotRestApi',{lambda_fn:lambda_main_brain})
     new CfnOutput(this, `API gateway endpoint url`,{value:`${restapi.endpoint}`});
 
+    const role = new iam.Role(this, 'MyRole', {
+      roleName: 'chatbot-kinesis-firehose-role',
+      assumedBy: new iam.ServicePrincipal('logs.amazonaws.com'),
+    });
 
+    const policy = new iam.Policy(this, 'MyPolicy', {
+      policyName: 'chatbot-kinesis-data-firehose',
+      statements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'kinesis:PutRecord',
+            'firehose:PutRecord',
+            'kinesis:PutRecords',
+            'firehose:PutRecordBatch',
+          ],
+          resources: ['*'],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            's3:PutObject',
+            's3:GetObject',
+            's3:ListBucketMultipartUploads',
+            's3:AbortMultipartUpload',
+            's3:ListBucket',
+            'logs:PutLogEvents',
+            's3:GetBucketLocation',
+          ],
+          resources: [
+            `arn:aws:logs:${region}:${account_id}:log-group:*`,
+            `${bucket.bucketArn}/*`,
+            `${bucket.bucketArn}`,
+          ],
+        }),
+      ],
+    });
+    
+    role.attachInlinePolicy(policy);
   
 
   }
