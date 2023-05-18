@@ -28,7 +28,7 @@ constructor(scope, id, props) {
         },
         securityGroups: [props.securityGroup],
         capacity: {
-            dataNodes: 1,
+            dataNodes: 2,
             // dataNodeInstanceType:'r6g.large.search'
           },
         ebs: {
