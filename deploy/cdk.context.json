@@ -154,5 +154,10 @@
   "availability-zones:account=946277762357:region=us-west-1": [
     "us-west-1a",
     "us-west-1b"
+  ],
+  "availability-zones:account=946277762357:region=us-east-2": [
+    "us-east-2a",
+    "us-east-2b",
+    "us-east-2c"
   ]
 }

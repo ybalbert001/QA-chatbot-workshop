@@ -50,7 +50,7 @@ export class DeployStack extends Stack {
     const securityGroups = vpcStack.securityGroups;
 
     const ec2stack = new Ec2Stack(this,'Ec2Stack',{vpc:vpc,securityGroup:securityGroups[0]});
-    new CfnOutput(this, 'EC2 Proxy Address', { value: ec2stack.dnsName });
+    new CfnOutput(this, 'EC2 Proxy Address', { value: `https://${ec2stack.dnsName}`});
     new CfnOutput(this, 'Download Key Command', { value: 'aws secretsmanager get-secret-value --secret-id ec2-ssh-key/cdk-keypair/private --query SecretString --output text > cdk-key.pem && chmod 400 cdk-key.pem' })
     new CfnOutput(this, 'ssh command', { value: 'ssh -i cdk-key.pem -o IdentitiesOnly=yes ec2-user@' + ec2stack.dnsName})
     ec2stack.addDependency(vpcStack);
@@ -65,6 +65,15 @@ export class DeployStack extends Stack {
         opensearchStack.addDependency(vpcStack);
     }
     new CfnOutput(this,'opensearch endpoint',{value:opensearch_endpoint});
+    new CfnOutput(this,'region',{value:process.env.CDK_DEFAULT_REGION});
+    new CfnOutput(this,'UPLOAD_BUCKET',{value:process.env.UPLOAD_BUCKET});
+    new CfnOutput(this,'llm_chatglm_endpoint',{value:process.env.llm_chatglm_endpoint});
+    new CfnOutput(this,'embedding_endpoint',{value:process.env.embedding_endpoint});
+    new CfnOutput(this,'model_name',{value:process.env.llm_chatglm_endpoint.replace('-endpoint','')});
+
+
+    
+
 
     // allow the ec2 sg traffic  
     // securityGroups[0].addIngressRule(ec2stack.securityGroup, ec2.Port.allTraffic(), 'Allow SSH Access')
@@ -197,6 +206,10 @@ export class DeployStack extends Stack {
       assumedBy: new iam.ServicePrincipal('logs.amazonaws.com'),
     });
 
+    const logResource =  (region.startsWith === 'cn')?
+                `arn:aws-cn:logs:${region}:${account_id}:log-group:*`:
+                `arn:aws:logs:${region}:${account_id}:log-group:*`;
+
     const policy = new iam.Policy(this, 'MyPolicy', {
       policyName: 'chatbot-kinesis-data-firehose',
       statements: [
@@ -222,7 +235,7 @@ export class DeployStack extends Stack {
             's3:GetBucketLocation',
           ],
           resources: [
-            `arn:aws:logs:${region}:${account_id}:log-group:*`,
+            logResource,
             `${bucket.bucketArn}/*`,
             `${bucket.bucketArn}`,
           ],
