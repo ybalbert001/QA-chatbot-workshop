@@ -197,6 +197,11 @@ export class DeployStack extends Stack {
       assumedBy: new iam.ServicePrincipal('logs.amazonaws.com'),
     });
 
+    let log_group_arn = `arn:aws:logs:${region}:${account_id}:log-group:*`
+    if (region == 'cn-north-1' || region === 'cn-northwest-1'){
+      log_group_arn = `arn:aws-cn:logs:${region}:${account_id}:log-group:*`
+    }
+    
     const policy = new iam.Policy(this, 'MyPolicy', {
       policyName: 'chatbot-kinesis-data-firehose',
       statements: [
@@ -222,7 +227,7 @@ export class DeployStack extends Stack {
             's3:GetBucketLocation',
           ],
           resources: [
-            `arn:aws:logs:${region}:${account_id}:log-group:*`,
+            `${log_group_arn}`,
             `${bucket.bucketArn}/*`,
             `${bucket.bucketArn}`,
           ],
