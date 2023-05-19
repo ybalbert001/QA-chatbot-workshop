@@ -2,8 +2,13 @@
 
 region=$1
 
+if [ ! -n "$2" ]; then
+    account_id=`aws sts get-caller-identity --query "Account" --output text`
+else
+    account_id="$2"
+fi
+
 ts=`date +%y-%m-%d-%H-%M-%S`
-account_id=`aws sts get-caller-identity --query "Account" --output text`
 unique_tag="$account_id-$ts"
 
 embedding_endpoint="${unique_tag}-embedding-endpoint"
