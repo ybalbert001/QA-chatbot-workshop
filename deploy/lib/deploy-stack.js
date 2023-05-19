@@ -17,7 +17,6 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as dotenv from "dotenv";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
-import * as cdk from 'aws-cdk-lib';
 
 dotenv.config();
 
@@ -41,7 +40,7 @@ export class DeployStack extends Stack {
     // const region = process.env.CDK_DEFAULT_REGION;
     // const account = process.env.CDK_DEFAULT_ACCOUNT;
     const region = props.env.region;
-    const account_id = cdk.Stack.of(this).account;
+    const account_id = Stack.of(this).account;
     const aos_existing_endpoint = props.env.aos_existing_endpoint;
 
     const vpcStack = new VpcStack(this,'vpc-stack',{env:process.env});
@@ -145,6 +144,7 @@ export class DeployStack extends Stack {
     //glue job
     const gluestack = new GlueStack(this,'glue-stack',{opensearch_endpoint,region,vpc,subnets,securityGroups});
     new CfnOutput(this, `Glue Job name`,{value:`${gluestack.jobName}`});
+    gluestack.addDependency(vpcStack)
 
     //file upload bucket
     const bucket = new s3.Bucket(this, 'DocUploadBucket', {
@@ -165,7 +165,7 @@ export class DeployStack extends Stack {
             glue_jobname:gluestack.jobName,
             embedding_endpoint:process.env.embedding_endpoint
           },
-          runtime: lambda.Runtime.PYTHON_3_10,
+          runtime: lambda.Runtime.PYTHON_3_9,
           timeout: Duration.minutes(1),
           // functionName:'offline_trigger_lambda',
           handler: 'offline_trigger_lambda.lambda_handler',
