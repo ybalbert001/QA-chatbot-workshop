@@ -13,6 +13,15 @@ if [ "$#" -lt 1 ]||[ "$#" -gt 2 ]; then
 fi
 
 region=$1
+suffix="com"
+
+cn_region=("cn-north-1","cn-northwest-1")
+
+if [[ "${cn_region[@]}" =~ "$region" ]]; then
+    suffix="com.cn"
+fi
+
+if [ "$region" ]
 
 if [ "$#" -eq 2 ]; then
     profile=$2
@@ -30,7 +39,7 @@ then
 fi
 
 func_image=chatbot_qa_main_brain_func
-funcimage_fullname=${account}.dkr.ecr.${region}.amazonaws.com/${func_image}:latest
+funcimage_fullname=${account}.dkr.ecr.${region}.amazonaws.${suffix}/${func_image}:latest
 
 # If the repository doesn't exist in ECR, create it.
 aws --profile ${profile} ecr describe-repositories --repository-names "${func_image}" --region ${region} || aws --profile ${profile} ecr create-repository --repository-name "${func_image}" --region ${region}
@@ -41,7 +50,7 @@ then
 fi
 
 # Get the login command from ECR and execute it directly
-aws --profile ${profile} ecr get-login-password --region $region | docker login --username AWS --password-stdin $account.dkr.ecr.$region.amazonaws.com
+aws --profile ${profile} ecr get-login-password --region $region | docker login --username AWS --password-stdin $account.dkr.ecr.$region.amazonaws.${suffix}
 
 aws --profile ${profile} ecr set-repository-policy \
     --repository-name "${func_image}" \
