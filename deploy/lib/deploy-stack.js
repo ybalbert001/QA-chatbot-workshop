@@ -99,7 +99,7 @@ export class DeployStack extends Stack {
       code: ecrImage,
       timeout: Duration.minutes(15),
       memorySize: 1024,
-      runtime: 'python3.10',
+      runtime: 'python3.9',
       // functionName: 'Main_brain',
       vpc:vpc,
       vpcSubnets:subnets,
