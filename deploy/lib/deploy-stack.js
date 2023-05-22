@@ -74,6 +74,7 @@ export class DeployStack extends Stack {
     new CfnOutput(this,'llm_chatglm_endpoint',{value:process.env.llm_chatglm_endpoint});
     new CfnOutput(this,'embedding_endpoint',{value:process.env.embedding_endpoint});
     new CfnOutput(this,'model_name',{value:process.env.llm_chatglm_endpoint.replace('-endpoint','')});
+    new CfnOutput(this,'embedding_model_name',{value:process.env.embedding_endpoint.replace('-endpoint','')});
 
 
     
