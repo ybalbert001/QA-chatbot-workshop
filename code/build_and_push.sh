@@ -21,8 +21,6 @@ if [[ "${cn_region[@]}" =~ "$region" ]]; then
     suffix="com.cn"
 fi
 
-if [ "$region" ]
-
 if [ "$#" -eq 2 ]; then
     profile=$2
 else
