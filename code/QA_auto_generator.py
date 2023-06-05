@@ -83,24 +83,39 @@ if __name__ == '__main__':
     parser.add_argument('--input_file', type=str, default='./1-Manual.pdf', help='input file')
     parser.add_argument('--output_file', type=str, default='./FAQ.txt', help='output file')
     parser.add_argument('--product', type=str, default="Midea Dishwasher", help='specify the product name of doc')
+<<<<<<< HEAD
     parser.add_argument('--format', type=str, default="pdf", help='specify the format')
+=======
+    parser.add_argument('--input_format', type=str, default="pdf", help='specify the format')
+>>>>>>> origin/cdk
     parser.add_argument('--lang', type=str, default="en", help='specify the language')
     parser.add_argument('--output_format', type=str, default="json", help='specify the language')
     args = parser.parse_args()
     doc_path = args.input_file
     product_name = args.product
     qa_path = args.output_file
+<<<<<<< HEAD
     format = args.format
+=======
+    in_format = args.input_format
+>>>>>>> origin/cdk
     lang = args.lang
     out_format= args.output_format
 
     prompt_template = zh_prompt_template if lang == "zh" else en_prompt_template
 
     docs = None
+<<<<<<< HEAD
     if format == "pdf":
         loader = PyPDFLoader(doc_path)
         docs = loader.load_and_split()
     elif format == "md":
+=======
+    if in_format == "pdf":
+        loader = PyPDFLoader(doc_path)
+        docs = loader.load_and_split()
+    elif in_format == "md":
+>>>>>>> origin/cdk
         in_file = open(doc_path, 'r')
         markdown_text = in_file.read()
         # markdown_splitter = MarkdownTextSplitter(chunk_size=500, chunk_overlap=0)

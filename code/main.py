@@ -15,6 +15,7 @@ from enum import Enum
 from typing import List
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
+<<<<<<< HEAD
 from langchain.chains.question_answering import load_qa_chain
 from langchain.chains import LLMChain
 from typing import Dict, List
@@ -30,6 +31,9 @@ from pydantic import BaseModel
 
 
 
+=======
+import langchain
+>>>>>>> origin/cdk
 credentials = boto3.Session().get_credentials()
 region = boto3.Session().region_name
 awsauth = AWS4Auth(credentials.access_key, credentials.secret_key, region, 'es', session_token=credentials.token)
@@ -328,6 +332,7 @@ def search_using_aos_knn(client, q_embedding, index, size=10):
         }
     }
     opensearch_knn_respose = []
+<<<<<<< HEAD
     query_response = client.search(
         body=query,
         index=index
@@ -345,6 +350,20 @@ def search_using_aos_knn(client, q_embedding, index, size=10):
     #     print(f'knn query exception:{str(e)}')
     #     return []
     
+=======
+    try:
+        r = requests.post("https://"+hostname + "/" + index +
+                        '/_search', headers=headers, json=query)
+        results = json.loads(r.text)["hits"]["hits"]
+        for item in results:
+            opensearch_knn_respose.append( {'doc':"{}{}{}".format(item['_source']['doc'], QA_SEP, item['_source']['answer']),"doc_type":item["_source"]["doc_type"],"score":item["_score"]} )
+        return opensearch_knn_respose
+    except Exception as e:
+        print(f'knn query exception:{str(e)}')
+        return []
+    
+
+>>>>>>> origin/cdk
 
 
 def aos_search(client, index_name, field, query_term, exactly_match=False, size=10):
@@ -356,6 +375,7 @@ def aos_search(client, index_name, field, query_term, exactly_match=False, size=
     :param query_term: query term
     :return: aos response json
     """
+<<<<<<< HEAD
     if not isinstance(client, OpenSearch):   
         client = OpenSearch(
             hosts=[{'host': client, 'port': 443}],
@@ -364,6 +384,15 @@ def aos_search(client, index_name, field, query_term, exactly_match=False, size=
             verify_certs=True,
             connection_class=RequestsHttpConnection
         )
+=======
+    client = OpenSearch(
+        hosts=[{'host': host, 'port': 443}],
+        http_auth = awsauth,
+        use_ssl=True,
+        verify_certs=True,
+        connection_class=RequestsHttpConnection
+    )
+>>>>>>> origin/cdk
     query = None
     if exactly_match:
         query =  {

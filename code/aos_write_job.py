@@ -9,17 +9,20 @@ from awsglue.utils import getResolvedOptions
 import sys
 import hashlib
 
-args = getResolvedOptions(sys.argv, ['bucket', 'object_key'])
+args = getResolvedOptions(sys.argv, ['bucket', 'object_key','AOS_ENDPOINT','REGION','EMB_MODEL_ENDPOINT'])
 s3 = boto3.resource('s3')
 bucket = args['bucket']
 object_key = args['object_key']
 
-EMB_MODEL_ENDPOINT = "st-paraphrase-mpnet-base-v2-2023-04-19-04-14-31-658-endpoint"
+# EMB_MODEL_ENDPOINT = "st-paraphrase-mpnet-base-v2-2023-04-19-04-14-31-658-endpoint"
+EMB_MODEL_ENDPOINT=args['EMB_MODEL_ENDPOINT']
 smr_client = boto3.client("sagemaker-runtime")
 
-AOS_ENDPOINT = 'vpc-chatbot-knn-3qe6mdpowjf3cklpj5c4q2blou.us-east-1.es.amazonaws.com'
+# AOS_ENDPOINT = 'vpc-chatbot-knn-3qe6mdpowjf3cklpj5c4q2blou.us-east-1.es.amazonaws.com'
+AOS_ENDPOINT = args['AOS_ENDPOINT']
+REGION = args['REGION']
 INDEX_NAME = 'chatbot-index'
-REGION='us-east-1'
+# REGION='us-east-1'
 
 def get_st_embedding(smr_client, text_input, endpoint_name=EMB_MODEL_ENDPOINT):
     parameters = {
@@ -64,7 +67,7 @@ def WriteVecIndexToAOS(paragraph_array, smr_client, aos_endpoint=AOS_ENDPOINT, r
 
     client = OpenSearch(
         hosts = [{'host': aos_endpoint, 'port': 443}],
-        # http_auth = auth,
+        http_auth = auth,
         use_ssl = True,
         verify_certs = True,
         connection_class = RequestsHttpConnection
