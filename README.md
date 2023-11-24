@@ -1,4 +1,4 @@
-### QA-chatbot-workshop
+### QA-chatbot-workshop(注意：仅用于workshop，POC请使用https://github.com/aws-samples/private-llm-qa-bot.git)
 
 - 代码介绍
 
